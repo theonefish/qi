@@ -1,0 +1,91 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": { "navigationBarTitleText": "蜀漆云馆" }
+		},
+		{
+			"path": "pages/exhibition/exhibition",
+			"style": { "navigationBarTitleText": "云展馆", "enablePullDownRefresh": true }
+		},
+		{
+			"path": "pages/artifacts/artifacts",
+			"style": { "navigationBarTitleText": "藏品" }
+		},
+		{
+			"path": "pages/member/member",
+			"style": { "navigationBarTitleText": "我的" }
+		},
+		{
+			"path": "pages/chapter/chapter",
+			"style": { "navigationBarTitleText": "章节详情" }
+		},
+		{
+			"path": "pages/artifact/artifact",
+			"style": { "navigationBarTitleText": "藏品详情" }
+		},
+		{
+			"path": "pages/crafts/crafts",
+			"style": { "navigationBarTitleText": "漆艺工艺" }
+		},
+		{
+			"path": "pages/craft/craft",
+			"style": { "navigationBarTitleText": "工艺详情" }
+		},
+		{
+			"path": "pages/inheritors/inheritors",
+			"style": { "navigationBarTitleText": "传承人" }
+		},
+		{
+			"path": "pages/inheritor/inheritor",
+			"style": { "navigationBarTitleText": "传承人详情" }
+		},
+		{
+			"path": "pages/favorites/favorites",
+			"style": { "navigationBarTitleText": "我的收藏" }
+		},
+		{
+			"path": "pages/progress/progress",
+			"style": { "navigationBarTitleText": "参观进度" }
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "蜀漆云馆",
+		"navigationBarBackgroundColor": "#f6f1e8",
+		"backgroundColor": "#f6f1e8"
+	},
+	"tabBar": {
+		"color": "#81776d",
+		"selectedColor": "#762d25",
+		"backgroundColor": "#fffdf8",
+		"borderStyle": "white",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "首页",
+				"iconPath": "static/tab/home.png",
+				"selectedIconPath": "static/tab/home-active.png"
+			},
+			{
+				"pagePath": "pages/exhibition/exhibition",
+				"text": "云展馆",
+				"iconPath": "static/tab/hall.png",
+				"selectedIconPath": "static/tab/hall-active.png"
+			},
+			{
+				"pagePath": "pages/artifacts/artifacts",
+				"text": "藏品",
+				"iconPath": "static/tab/artifact.png",
+				"selectedIconPath": "static/tab/artifact-active.png"
+			},
+			{
+				"pagePath": "pages/member/member",
+				"text": "我的",
+				"iconPath": "static/tab/member.png",
+				"selectedIconPath": "static/tab/member-active.png"
+			}
+		]
+	},
+	"uniIdRouter": {}
+}

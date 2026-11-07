@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: qi
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/shuqi_cloud_museum?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+  servlet:
+    multipart:
+      max-file-size: 20MB       # 9.4 限制上传大小
+      max-request-size: 50MB
+
+sa-token:
+  token-name: Authorization   # 前端请求头：Authorization: <token>
+  timeout: 604800             # 7 天会话
+  token-style: uuid
+  is-log: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html    # 接口文档地址
+
+file:
+  storage-dir: D:/shuqi-upload/   # 本地媒体文件目录（9.1 本地存储口径），WebConfig 映射为 /files/**

@@ -1,0 +1,17 @@
+# 构建产物
+qi/target/
+fronted/漆器云馆/unpackage/
+
+# IDE 与本地工具状态
+.idea/
+*.iml
+.vscode/
+.mimosa/
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# 日志与临时文件
+*.log
+qi/*.log
