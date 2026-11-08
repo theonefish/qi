@@ -19,7 +19,7 @@
 <script setup>
 	import { ref } from 'vue';
 	import { onShow } from '@dcloudio/uni-app';
-	import { api, fullUrl } from '../../utils/api.js';
+	import { api, fullUrl, full } from '../../utils/api.js';
 	import { anonymousId } from '../../utils/visitor.js';
 
 	const list = ref([]);

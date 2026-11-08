@@ -27,17 +27,22 @@
 			<text class="intro-text">{{ chapter.summary }}</text>
 		</view>
 
-		<!-- 节点快捷导航（原型 node-nav：点击定位，滚动高亮） -->
-		<scroll-view scroll-x class="node-nav" v-if="nodes.length">
+		<!-- 节点快捷导航（原型 node-nav：点击定位，滚动高亮；分支章节按活跃路径裁剪，§10.2） -->
+		<scroll-view scroll-x class="node-nav" v-if="visibleNodes.length">
 			<view class="node-nav-inner">
-				<view class="chip" v-for="n in nodes" :key="n.id" :class="{ active: currentNodeId === n.id }"
+				<view class="chip" v-for="n in visibleNodes" :key="n.id" :class="{ active: currentNodeId === n.id }"
 					@click="scrollToNode(n.id)">{{ n.title }}</view>
+				<view class="chip chip-toggle" :class="{ active: showAll }" @click="toggleShowAll">浏览全部</view>
 			</view>
 		</scroll-view>
 
-		<!-- 节点内容区（节点按后台顺序渲染，不建独立路由，6.13） -->
+		<!-- 节点内容区（分支章节按活跃路径渲染：抉择处强制选择，§10.2；老章节仍为全量线性） -->
 		<view class="content">
-			<view class="node-section" v-for="(n, idx) in nodes" :key="n.id" :id="'node-' + n.id">
+			<view class="node-section" v-for="(n, idx) in visibleNodes" :key="n.id" :id="'node-' + n.id"
+				:class="{ ghost: showAll && !pathIdSet.has(n.id) }">
+				<view class="ghost-badge" v-if="showAll && !pathIdSet.has(n.id)">
+					<text class="gb-text">未选择的路线</text>
+				</view>
 				<view class="section-head">
 					<text class="section-index">{{ pad(idx + 1) }}</text>
 					<view class="sh-text">
@@ -46,17 +51,29 @@
 					</view>
 				</view>
 
-				<!-- 图文节点 -->
-				<template v-if="n.nodeType === 'TEXT'">
-					<view v-for="(m, mi) in n.mediaList" :key="mi" class="photo-card">
-						<image :src="full(m.url)" mode="widthFix" class="photo-img" @load="measureSoon" />
-						<text class="photo-caption" v-if="m.caption">{{ m.caption }}</text>
+				<!-- 分支抉择节点：按钮交互，选择后沿所选路径继续（分支叙事 §10.2） -->
+				<template v-if="n.nodeType === 'BRANCH'">
+					<view class="branch-card">
+						<text class="branch-kicker">MAKE A CHOICE</text>
+						<text class="branch-q">{{ n.content || '请选择你想走的路线' }}</text>
+						<view class="branch-btns" v-if="chosen[n.id] === undefined">
+							<view class="branch-btn" v-for="c in n.choices" :key="c.id" @click="choose(n, c)">{{ c.label }}</view>
+						</view>
+						<view class="branch-chosen" v-else>
+							<text class="bc-label">已选 · {{ chosenLabel(n) }}</text>
+							<text class="bc-repick" @click="reselect(n)">重选</text>
+						</view>
 					</view>
-					<view class="para" v-for="(para, pi) in n.paragraphs" :key="pi">
-						<text v-for="(seg, si) in para" :key="si"
-							:class="{ term: seg.type === 'term' }"
-							@click="seg.type === 'term' && openTerm(seg.id)">{{ seg.text }}</text>
-					</view>
+				</template>
+
+				<!-- 图文节点：富文本 HTML 与术语混排（rich-text 渲染片段，术语可点击） -->
+				<template v-else-if="n.nodeType === 'TEXT'">
+					<template v-for="(seg, si) in richSegments(n)" :key="si">
+						<rich-text v-if="seg.type === 'html'" class="rich-block" :nodes="seg.html"></rich-text>
+						<view v-else class="para">
+							<text class="term" @click="openTerm(seg.id)">{{ seg.label }}</text>
+						</view>
+					</template>
 				</template>
 
 				<!-- 时间轴节点 -->
@@ -65,7 +82,7 @@
 						<view class="timeline-item" v-for="ev in n.events" :key="ev.id">
 							<text class="tl-time">{{ ev.eventTime }}</text>
 							<text class="tl-title">{{ ev.title }}</text>
-							<text class="tl-desc" v-if="ev.description">{{ ev.description }}</text>
+							<rich-text class="tl-desc" v-if="ev.description" :nodes="toRichHtml(ev.description)"></rich-text>
 						</view>
 					</view>
 				</template>
@@ -150,7 +167,7 @@
 				<text class="b-sub">{{ currentNodeTitle }}</text>
 				<view class="bar"><view class="bar-fill" :style="{ width: readPercent + '%' }"></view></view>
 			</view>
-			<view class="bottom-next" @click="scrollToEnd"><text class="bn-text">章节结尾 ↓</text></view>
+			<view class="bottom-next" @click="onBottomNext"><text class="bn-text">{{ pendingBranch ? '请先做出选择 ↑' : '章节结尾 ↓' }}</text></view>
 		</view>
 
 		<!-- 术语弹层（FR-06：关闭后停留在原阅读位置） -->
@@ -159,7 +176,7 @@
 				<view class="sheet-handle"></view>
 				<text class="sheet-kicker">CULTURAL KNOWLEDGE</text>
 				<text class="sheet-title">{{ termPopup.name }}</text>
-				<text class="sheet-body">{{ termPopup.definition }}</text>
+				<rich-text class="sheet-body" :nodes="toRichHtml(termPopup.definition)"></rich-text>
 				<text class="sheet-src" v-if="termPopup.source">来源：{{ termPopup.source }}</text>
 				<button class="sheet-close" @click="termPopup = null">返回章节</button>
 			</view>
@@ -168,11 +185,11 @@
 </template>
 
 <script setup>
-	import { ref, computed } from 'vue';
+	import { ref, computed, nextTick } from 'vue';
 	import { onLoad, onPageScroll } from '@dcloudio/uni-app';
-	import { api, fullUrl } from '../../utils/api.js';
+	import { api, fullUrl, full } from '../../utils/api.js';
 	import { anonymousId, report } from '../../utils/visitor.js';
-	import { parseSegments, collectTermIds } from '../../utils/term.js';
+	import { collectTermIds, prepareRichHtml, splitRichByTerms, toRichHtml } from '../../utils/term.js';
 
 	const chapterId = ref(null);
 	const chapter = ref(null);
@@ -193,6 +210,50 @@
 	const completed = ref(false);
 	const nextChapter = ref(null);
 	let loaded = false;
+
+	// ---- 分支叙事（设计稿 §10.1）：抉择选择 + 活跃路径渲染 ----
+	const chosen = ref({});        // { 分支节点id: 选项id }
+	const showAll = ref(false);    // 「浏览全部」：未走分支灰显展开
+	const sortedNodes = computed(() => nodes.value);
+	const nodeById = computed(() => Object.fromEntries(nodes.value.map((n) => [n.id, n])));
+
+	/** 有效后继：显式覆盖 ?? sortOrder 的下一节点 */
+	function nextOf(n) {
+		if (n.nextNodeId != null) return n.nextNodeId;
+		const i = sortedNodes.value.findIndex((x) => x.id === n.id);
+		return i >= 0 && i < sortedNodes.value.length - 1 ? sortedNodes.value[i + 1].id : null;
+	}
+
+	/** 活跃路径：入口 → 沿选择/默认链 → 收尾；分支点未选择即停（强制选择） */
+	const activePath = computed(() => {
+		const list = [];
+		const guard = new Set();
+		let cur = sortedNodes.value[0];
+		while (cur && !guard.has(cur.id)) {
+			guard.add(cur.id);
+			list.push(cur);
+			if (cur.nodeType === 'BRANCH') {
+				const cid = chosen.value[cur.id];
+				if (cid == null) break;
+				const c = (cur.choices || []).find((x) => x.id === cid);
+				cur = c ? nodeById.value[c.targetNodeId] : null;
+			} else {
+				cur = nodeById.value[nextOf(cur)];
+			}
+		}
+		return list;
+	});
+
+	const pathIdSet = computed(() => new Set(activePath.value.map((n) => n.id)));
+
+	/** 渲染集合：默认只渲染活跃路径；「浏览全部」时全量渲染并灰显未走内容 */
+	const visibleNodes = computed(() => (showAll.value ? sortedNodes.value : activePath.value));
+
+	/** 路径停在未选择的分支点（渲染到此处等待抉择） */
+	const pendingBranch = computed(() => {
+		const last = activePath.value[activePath.value.length - 1];
+		return last && last.nodeType === 'BRANCH' && chosen.value[last.id] === undefined ? last : null;
+	});
 
 	function pad(n) {
 		return String(n || 0).padStart(2, '0');
@@ -221,6 +282,16 @@
 		return String.fromCharCode(65 + (i % 26));
 	}
 
+	/** TEXT 富文本：按术语标记切分为 HTML 片段与可点击术语（术语名来自批量释义） */
+	function richSegments(n) {
+		const html = prepareRichHtml(n.contentHtml || '');
+		return splitRichByTerms(html).map((seg) =>
+			seg.type === 'term'
+				? { type: 'term', id: seg.id, label: termMap[seg.id] ? termMap[seg.id].name : '术语' }
+				: seg
+		);
+	}
+
 	function typeLabel(t) {
 		return { artifact: '关联藏品', craft: '关联工艺', inheritor: '关联人物' }[t] || '关联内容';
 	}
@@ -231,6 +302,15 @@
 
 	async function load() {
 		try {
+			// 以章节页为启动页直接调试时无 id 参数：默认取第一个已发布章节（演示/调试入口）
+			if (!chapterId.value) {
+				const list = await api.chapters();
+				if (!list || !list.length) {
+					uni.showToast({ title: '暂无已发布章节', icon: 'none' });
+					return;
+				}
+				chapterId.value = list[0].id;
+			}
 			const detail = await api.chapter(chapterId.value);
 			chapter.value = detail.chapter;
 
@@ -246,12 +326,6 @@
 				const node = Object.assign({}, n);
 				if (n.nodeType === 'TEXT') {
 					node.mediaList = n.media || [];
-					node.paragraphs = (n.content || '').split(/\n+/)
-						.map((p) => parseSegments(p))
-						.map((segs) => segs.map((s) => s.type === 'term'
-							? Object.assign({}, s, { label: termMap[s.id] ? termMap[s.id].name : s.label })
-							: s))
-						.filter((p) => p.length);
 				}
 				return node;
 			});
@@ -263,6 +337,14 @@
 			completed.value = !!(self && self.completed);
 			const idx = (progress || []).findIndex((p) => p.chapterId === Number(chapterId.value));
 			nextChapter.value = idx >= 0 && idx < progress.length - 1 ? progress[idx + 1] : null;
+			// 断点续读还原分支选择（§10.3：choicePath = [{"n":分支id,"c":选项id}]）
+			if (self && self.choicePath) {
+				try {
+					const map = {};
+					(JSON.parse(self.choicePath) || []).forEach((p) => { map[p.n] = p.c; });
+					chosen.value = map;
+				} catch (e) { /* 解析失败按默认路径走 */ }
+			}
 
 			report('enter_chapter', { chapterId: Number(chapterId.value) });
 			loaded = true;
@@ -276,6 +358,11 @@
 		if (resumeNodeId && nodeTops[resumeNodeId] !== undefined) {
 			scrollToNode(resumeNodeId);
 			resumeNodeId = null;
+			return;
+		}
+		// 分支章节：续读位置不在活跃路径（藏在未选分支后）→ 定位到待抉择的分支点
+		if (pendingBranch.value) {
+			scrollToNode(pendingBranch.value.id);
 		}
 	}
 
@@ -316,9 +403,15 @@
 		if (current && current !== currentNodeId.value) {
 			currentNodeId.value = current;
 			const cid = Number(chapterId.value);
-			// 行为上报 + 断点续读位置（5.6：浏览到节点时更新）
+			// 行为上报 + 断点续读位置（5.6：浏览到节点时更新；分支章节附带选择路径 §10.4）
 			report('view_node', { chapterId: cid, nodeId: current });
-			api.readPosition({ anonymousId: anonymousId(), chapterId: cid, nodeId: current }).catch(() => {});
+			const hasBranch = Object.keys(chosen.value).length > 0;
+			api.readPosition({
+				anonymousId: anonymousId(),
+				chapterId: cid,
+				nodeId: current,
+				choicePath: hasBranch ? JSON.stringify(toChoicePath()) : undefined
+			}).catch(() => {});
 		}
 	});
 
@@ -360,6 +453,66 @@
 		}
 	}
 
+	// ---------------- 分支叙事交互（§10.3） ----------------
+
+	function chosenLabel(n) {
+		const c = (n.choices || []).find((x) => x.id === chosen.value[n.id]);
+		return c ? c.label : '';
+	}
+
+	function toChoicePath() {
+		return Object.entries(chosen.value).map(([bid, cid]) => ({ n: Number(bid), c: cid }));
+	}
+
+	/** 抉择：记录选择 → 上报 → 续读位置带分支路径 → 展开并跳转到所选路线的图文内容（§10.3） */
+	async function choose(n, c) {
+		chosen.value = { ...chosen.value, [n.id]: c.id };
+		const cid = Number(chapterId.value);
+		report('choose_branch', { chapterId: cid, nodeId: n.id, targetType: 'choice', targetId: c.id });
+		api.readPosition({
+			anonymousId: anonymousId(), chapterId: cid, nodeId: n.id,
+			choicePath: JSON.stringify(toChoicePath())
+		}).catch(() => {});
+		await nextTick();
+		measure();
+		// 定位到所选路线的首个图文节点：点击选项即到达对应图文内容
+		scrollToNode(c.targetNodeId);
+	}
+
+	/** 重选：清除该分支及其后所有分支的选择，回到抉择点 */
+	function reselect(n) {
+		const idx = activePath.value.findIndex((x) => x.id === n.id);
+		const keep = {};
+		for (const item of activePath.value.slice(0, idx)) {
+			if (item.nodeType === 'BRANCH' && chosen.value[item.id] !== undefined) {
+				keep[item.id] = chosen.value[item.id];
+			}
+		}
+		chosen.value = keep;
+		api.readPosition({
+			anonymousId: anonymousId(), chapterId: Number(chapterId.value), nodeId: n.id,
+			choicePath: JSON.stringify(toChoicePath())
+		}).catch(() => {});
+		nextTick(() => {
+			measureSoon();
+			scrollToNode(n.id);
+		});
+	}
+
+	function toggleShowAll() {
+		showAll.value = !showAll.value;
+		nextTick(() => measureSoon());
+	}
+
+	/** 底部栏：路径停在分支点时定位到抉择点，否则跳章节结尾 */
+	function onBottomNext() {
+		if (pendingBranch.value) {
+			scrollToNode(pendingBranch.value.id);
+		} else {
+			scrollToEnd();
+		}
+	}
+
 	async function onComplete() {
 		if (completed.value) return;
 		try {
@@ -376,7 +529,9 @@
 
 	onLoad((options) => {
 		windowHeight = (uni.getSystemInfoSync().windowHeight) || 600;
-		chapterId.value = options.id;
+		// 参数缺失/非法（如旧链接 ?id=undefined）时按无参处理，回退到第一个已发布章节
+		const id = Number(options.id);
+		chapterId.value = Number.isFinite(id) && id > 0 ? id : null;
 		resumeNodeId = options.nodeId ? Number(options.nodeId) : null;
 		load();
 	});
@@ -421,6 +576,28 @@
 		padding: 10rpx 24rpx; font-size: 22rpx; background: transparent;
 	}
 	.chip.active { background: $red; border-color: $red; color: #fff5e8; }
+	.chip-toggle { border-style: dashed; }
+
+	/* 分支抉择卡片（分支叙事 §10.4，风格呼应口述卡片） */
+	.branch-card {
+		border-radius: 22rpx; background: linear-gradient(135deg, #4a2c23, #8a5030);
+		padding: 36rpx; color: #fbf0dd; margin: 24rpx 0;
+	}
+	.branch-kicker { font-size: 16rpx; letter-spacing: 3rpx; color: #e8c99a; display: block; }
+	.branch-q { display: block; font-size: 30rpx; line-height: 1.8; margin: 14rpx 0 6rpx; }
+	.branch-btn { border: 1rpx solid #e8c99a; border-radius: 44rpx; padding: 20rpx;
+		text-align: center; font-size: 28rpx; margin-top: 18rpx; }
+	.branch-btn:active { background: rgba(232, 201, 154, .18); }
+	.branch-chosen { display: flex; align-items: center; gap: 20rpx; margin-top: 10rpx;
+		padding-top: 18rpx; border-top: 1rpx solid rgba(237, 213, 175, .25); }
+	.bc-label { font-size: 26rpx; color: #f1e0ce; flex: 1; }
+	.bc-repick { font-size: 24rpx; color: #e8c99a; border-bottom: 1rpx dashed #e8c99a; padding-bottom: 2rpx; }
+
+	/* 「浏览全部」时未走分支的灰显内容 */
+	.node-section.ghost { opacity: .45; }
+	.ghost-badge { margin-bottom: -8rpx; }
+	.gb-text { font-size: 20rpx; color: #a07b4d; border: 1rpx solid #d8c4a8;
+		border-radius: 20rpx; padding: 4rpx 16rpx; }
 
 	.content { padding: 0 40rpx 30rpx; }
 	.node-section { padding: 46rpx 4rpx 40rpx; border-bottom: 1rpx solid $line; }
@@ -436,6 +613,7 @@
 
 	.para { margin: 16rpx 0; }
 	.para text { font-size: 26rpx; line-height: 2; color: #645b52; }
+	.rich-block { display: block; }
 	.term { border-bottom: 2rpx dashed $red2; color: $red; }
 
 	.timeline { margin: 20rpx 0 0 18rpx; border-left: 2rpx solid #c9ad83; padding-left: 36rpx; }

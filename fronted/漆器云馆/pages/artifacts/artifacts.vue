@@ -34,7 +34,7 @@
 <script setup>
 	import { ref } from 'vue';
 	import { onShow, onReachBottom } from '@dcloudio/uni-app';
-	import { api, fullUrl } from '../../utils/api.js';
+	import { api, fullUrl, full } from '../../utils/api.js';
 
 	const categories = ref([]);
 	const activeCategory = ref(null);
@@ -110,10 +110,12 @@
 		padding: 10rpx 28rpx; font-size: 24rpx;
 	}
 	.cat-chip.active { background: $red; border-color: $red; color: #fff5e8; }
-	.grid { display: flex; flex-wrap: wrap; padding: 24rpx 24rpx 0; gap: 22rpx; }
+	.grid { display: flex; flex-wrap: wrap; justify-content: space-between; padding: 24rpx; }
 	.card {
-		width: calc(50% - 11rpx); background: $paper2; border: 1rpx solid $line;
-		border-radius: 18rpx; overflow: hidden;
+		/* 两列：750rpx 设计宽 - 左右内边距 48 = 702，单卡 340 + 列间 22（固定 rpx，
+		   避免 calc 混用 % 与 rpx 在部分微信基础库上失效导致通栏） */
+		width: 340rpx; background: $paper2; border: 1rpx solid $line;
+		border-radius: 18rpx; overflow: hidden; margin-bottom: 22rpx;
 	}
 	.card-img-wrap { width: 100%; height: 300rpx; background: #e8dfd2; }
 	.card-img { width: 100%; height: 100%; }

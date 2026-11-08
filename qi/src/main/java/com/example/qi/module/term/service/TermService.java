@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.qi.common.BusinessException;
 import com.example.qi.common.ContentStatus;
+import com.example.qi.common.HtmlTextUtils;
 import com.example.qi.module.auth.service.AuthService;
 import com.example.qi.module.publish.entity.PublishRecord;
 import com.example.qi.module.publish.service.PublishRecordService;
@@ -116,7 +117,7 @@ public class TermService {
     }
 
     private void validateForPublish(Term term) {
-        if (!StringUtils.hasText(term.getName()) || !StringUtils.hasText(term.getDefinition())) {
+        if (!StringUtils.hasText(term.getName()) || !HtmlTextUtils.hasText(term.getDefinition())) {
             throw new BusinessException("发布条件不满足：名称和释义必填（5.2）");
         }
         if (term.getAuditStatus() == null || term.getAuditStatus() != 1) {

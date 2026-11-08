@@ -25,7 +25,7 @@ public class MybatisPlusConfig {
         return interceptor;
     }
 
-    /** 实体 createTime / updateTime 自动填充，业务代码不用手动设置 */
+    /** 实体 createTime / updateTime / publishTime 自动填充，业务代码不用手动设置 */
     @Component
     public static class FillTimeHandler implements MetaObjectHandler {
 
@@ -33,6 +33,8 @@ public class MybatisPlusConfig {
         public void insertFill(MetaObject metaObject) {
             this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, LocalDateTime.now());
             this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
+            // publish_record.publish_time 挂了 FieldFill.INSERT，不填会以 NULL 入库撞 NOT NULL 约束
+            this.strictInsertFill(metaObject, "publishTime", LocalDateTime.class, LocalDateTime.now());
         }
 
         @Override

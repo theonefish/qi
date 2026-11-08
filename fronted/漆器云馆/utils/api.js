@@ -8,6 +8,9 @@ export function fullUrl(path) {
 	return path.indexOf('http') === 0 ? path : BASE_URL + path;
 }
 
+/** 页面模板通用短名：存量页面模板多写 full(...)，此别名统一指向 fullUrl（勿删） */
+export const full = fullUrl;
+
 function qs(params) {
 	if (!params) return '';
 	const parts = [];
@@ -56,6 +59,8 @@ export const api = {
 	craft: (id) => request('/app/crafts/' + id),
 	inheritors: () => request('/app/inheritors'),
 	inheritor: (id) => request('/app/inheritors/' + id),
+	// 纹饰资料（FR 补充：纹饰主题页）
+	motifs: () => request('/app/motifs'),
 	// 术语批量释义（FR-06，正文 [[term:ID]] 标记解析后调用）
 	terms: (ids) => request('/app/terms' + qs({ ids: ids.join(',') })),
 	// 访客：进度 / 断点续读 / 收藏 / 行为上报

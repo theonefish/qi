@@ -3,6 +3,7 @@ package com.example.qi.module.craft.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.qi.common.BusinessException;
 import com.example.qi.common.ContentStatus;
+import com.example.qi.common.HtmlTextUtils;
 import com.example.qi.module.artifact.entity.Artifact;
 import com.example.qi.module.artifact.mapper.ArtifactMapper;
 import com.example.qi.module.craft.entity.Craft;
@@ -13,6 +14,7 @@ import com.example.qi.module.media.entity.MediaAsset;
 import com.example.qi.module.media.mapper.MediaAssetMapper;
 import com.example.qi.module.publish.entity.PublishRecord;
 import com.example.qi.module.publish.service.PublishRecordService;
+import com.example.qi.module.relation.dto.RelationSaveRequest;
 import com.example.qi.module.relation.entity.ContentRelation;
 import com.example.qi.module.relation.service.RelationService;
 import jakarta.validation.constraints.NotBlank;
@@ -118,6 +120,21 @@ public class CraftService {
         Craft craft = requireCraft(id);
         craft.setStatus(ContentStatus.OFF_SHELF.getCode());
         craftMapper.updateById(craft);
+    }
+
+    /** 工艺关联藏品（8.2：工艺↔藏品多对多） */
+    public void setRelations(Long id, RelationSaveRequest request) {
+        requireCraft(id);
+        List<ContentRelation> relations = new ArrayList<>();
+        if (request.getTargets() != null) {
+            for (RelationSaveRequest.TargetItem item : request.getTargets()) {
+                ContentRelation relation = new ContentRelation();
+                relation.setTargetType(item.getTargetType());
+                relation.setTargetId(item.getTargetId());
+                relations.add(relation);
+            }
+        }
+        relationService.setRelations("craft", id, relations);
     }
 
     // ---------------------------- 工序 ----------------------------
@@ -231,8 +248,8 @@ public class CraftService {
 
     /** 发布校验（5.2 工艺行）：名称、概述、适用范围说明、至少一个有效工序 */
     private void validateForPublish(Craft craft, Long id) {
-        if (!StringUtils.hasText(craft.getName()) || !StringUtils.hasText(craft.getOverview())
-                || !StringUtils.hasText(craft.getScope())) {
+        if (!StringUtils.hasText(craft.getName()) || !HtmlTextUtils.hasText(craft.getOverview())
+                || !HtmlTextUtils.hasText(craft.getScope())) {
             throw new BusinessException("发布条件不满足：名称、概述和适用范围说明必填（5.2）");
         }
         List<CraftStep> steps = listSteps(id);

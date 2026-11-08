@@ -60,10 +60,11 @@ public class AppVisitorController {
 
     // ---------------------------- 进度与断点续读（FR-05） ----------------------------
 
-    /** 浏览到节点时上报阅读位置（离开章节前由前端在节点切换时调用） */
+    /** 浏览到节点时上报阅读位置（离开章节前由前端在节点切换时调用；choicePath 为分支路径，可选） */
     @PostMapping("/progress/read")
     public Result<Void> updateReadPosition(@Valid @RequestBody ReadPositionRequest request) {
-        visitorService.updateReadPosition(request.getAnonymousId(), request.getChapterId(), request.getNodeId());
+        visitorService.updateReadPosition(request.getAnonymousId(), request.getChapterId(),
+                request.getNodeId(), request.getChoicePath());
         return Result.ok();
     }
 

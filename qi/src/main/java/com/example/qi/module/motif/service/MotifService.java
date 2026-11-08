@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.qi.common.BusinessException;
 import com.example.qi.common.ContentStatus;
+import com.example.qi.common.HtmlTextUtils;
 import com.example.qi.module.publish.entity.PublishRecord;
 import com.example.qi.module.publish.service.PublishRecordService;
 import com.example.qi.module.motif.entity.Motif;
@@ -14,9 +15,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
+
 /**
  * 纹饰资料服务（ADM-07）：CRUD、发布与下架。
- * 发布条件：名称、文化解释、资料来源（5.2）。P0 在章节/藏品中引用展示，独立主题页为 P1。
+ * 发布条件：名称、文化解释、资料来源（5.2）。P0 在章节/藏品中引用展示；小程序纹饰主题列表（FR 补充）。
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +31,20 @@ public class MotifService {
 
     public record MotifSave(@NotBlank(message = "纹饰名称不能为空") String name,
                             String imageUrl, String culturalExplain, String source) {
+    }
+
+    /** 小程序纹饰列表视图 */
+    public record AppMotif(Long id, String name, String imageUrl, String culturalExplain, String source) {
+    }
+
+    /** 小程序纹饰列表：仅已发布，按创建时间正序 */
+    public List<AppMotif> appList() {
+        return motifMapper.selectList(Wrappers.<Motif>lambdaQuery()
+                        .eq(Motif::getStatus, ContentStatus.PUBLISHED.getCode())
+                        .orderByAsc(Motif::getId)).stream()
+                .map(m -> new AppMotif(m.getId(), m.getName(), m.getImageUrl(),
+                        m.getCulturalExplain(), m.getSource()))
+                .toList();
     }
 
     public Page<Motif> page(long pageNum, long pageSize, String keyword) {
@@ -63,7 +80,7 @@ public class MotifService {
     /** 发布（5.2：名称、文化解释、资料来源；无审核要求） */
     public PublishRecord publish(Long id, String modifySummary) {
         Motif motif = requireMotif(id);
-        if (!StringUtils.hasText(motif.getName()) || !StringUtils.hasText(motif.getCulturalExplain())
+        if (!StringUtils.hasText(motif.getName()) || !HtmlTextUtils.hasText(motif.getCulturalExplain())
                 || !StringUtils.hasText(motif.getSource())) {
             throw new BusinessException("发布条件不满足：名称、文化解释和资料来源必填（5.2）");
         }

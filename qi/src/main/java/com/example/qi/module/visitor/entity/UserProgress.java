@@ -27,6 +27,9 @@ public class UserProgress {
     /** 最后阅读节点（5.6 断点续读定位用） */
     private Long lastNodeId;
 
+    /** 分支选择路径 JSON：[{"n":分支节点id,"c":选项id}]（分支叙事断点续读，前端写前端读） */
+    private String choicePath;
+
     private Integer completed;
 
     private LocalDateTime completeTime;

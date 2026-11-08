@@ -4,6 +4,7 @@ import com.example.qi.common.Result;
 import com.example.qi.module.inheritor.entity.Inheritor;
 import com.example.qi.module.inheritor.service.InheritorService;
 import com.example.qi.module.publish.entity.PublishRecord;
+import com.example.qi.module.relation.dto.RelationSaveRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -72,6 +73,13 @@ public class AdminInheritorController {
     @PostMapping("/{id}/off-shelf")
     public Result<Void> offShelf(@PathVariable Long id) {
         inheritorService.offShelf(id);
+        return Result.ok();
+    }
+
+    /** 传承人关联管理（8.2：代表作品/擅长技艺） */
+    @PutMapping("/{id}/relations")
+    public Result<Void> setRelations(@PathVariable Long id, @Valid @RequestBody RelationSaveRequest request) {
+        inheritorService.setRelations(id, request);
         return Result.ok();
     }
 }

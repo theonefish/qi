@@ -10,8 +10,8 @@
 		</view>
 
 		<!-- 章节列表（按后台配置顺序，D-02 数量不写死） -->
-		<view class="chapter-card" v-for="(item, idx) in list" :key="item.chapterId"
-			:class="{ highlight: highlightId === item.chapterId }" @click="goChapter(item)">
+		<view class="chapter-card" v-for="(item, idx) in list" :key="item.id"
+			:class="{ highlight: highlightId === item.id }" @click="goChapter(item)">
 			<view class="cc-cover">
 				<image v-if="item.coverUrl" :src="full(item.coverUrl)" mode="aspectFill" class="cc-img" />
 				<view v-else class="cc-fallback">
@@ -39,9 +39,9 @@
 </template>
 
 <script setup>
-	import { ref } from 'vue';
+	import { ref, computed } from 'vue';
 	import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
-	import { api, fullUrl } from '../../utils/api.js';
+	import { api, fullUrl, full } from '../../utils/api.js';
 	import { anonymousId, report } from '../../utils/visitor.js';
 
 	const list = ref([]);
@@ -49,6 +49,8 @@
 	const completedMain = ref(0);
 	const totalMain = ref(0);
 	const highlightId = ref(null);
+	/** 全部正章已完成（引导按钮切「从序章再看」） */
+	const allDone = computed(() => totalMain.value > 0 && completedMain.value >= totalMain.value);
 
 	function pad(n) {
 		return String(n || 0).padStart(2, '0');
@@ -105,7 +107,7 @@
 	}
 
 	function goChapter(item) {
-		const url = '/pages/chapter/chapter?id=' + item.chapterId +
+		const url = '/pages/chapter/chapter?id=' + item.id +
 			(item.lastNodeId ? '&nodeId=' + item.lastNodeId : '');
 		uni.navigateTo({ url });
 	}

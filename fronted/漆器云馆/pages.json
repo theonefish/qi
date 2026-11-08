@@ -29,6 +29,10 @@
 			"style": { "navigationBarTitleText": "漆艺工艺" }
 		},
 		{
+			"path": "pages/motifs/motifs",
+			"style": { "navigationBarTitleText": "纹饰资料" }
+		},
+		{
 			"path": "pages/craft/craft",
 			"style": { "navigationBarTitleText": "工艺详情" }
 		},

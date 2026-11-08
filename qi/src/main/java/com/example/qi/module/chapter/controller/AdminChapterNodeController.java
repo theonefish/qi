@@ -1,8 +1,10 @@
 package com.example.qi.module.chapter.controller;
 
 import com.example.qi.common.Result;
+import com.example.qi.module.chapter.dto.NextTargetRequest;
 import com.example.qi.module.chapter.dto.NodeSaveRequest;
 import com.example.qi.module.chapter.entity.ChapterNode;
+import com.example.qi.module.chapter.service.ChapterFlowService;
 import com.example.qi.module.chapter.service.ChapterNodeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ import java.util.List;
 public class AdminChapterNodeController {
 
     private final ChapterNodeService chapterNodeService;
+    private final ChapterFlowService chapterFlowService;
 
     /** 节点基础列表（按配置顺序，不含扩展数据） */
     @GetMapping
@@ -64,6 +67,14 @@ public class AdminChapterNodeController {
     public Result<Void> move(@PathVariable Long chapterId, @PathVariable Long nodeId,
                              @RequestParam String direction) {
         chapterNodeService.move(chapterId, nodeId, direction);
+        return Result.ok();
+    }
+
+    /** 流向覆盖连线轻接口（分支叙事 §9.6）：targetNodeId 为空表示清除覆盖、回落默认链 */
+    @PutMapping("/{nodeId}/next")
+    public Result<Void> setNext(@PathVariable Long chapterId, @PathVariable Long nodeId,
+                                @RequestBody NextTargetRequest request) {
+        chapterFlowService.setNext(chapterId, nodeId, request.getTargetNodeId());
         return Result.ok();
     }
 }

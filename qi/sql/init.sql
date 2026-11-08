@@ -61,17 +61,20 @@ CREATE TABLE chapter (
 CREATE TABLE chapter_node (
     id         BIGINT       NOT NULL AUTO_INCREMENT,
     chapter_id BIGINT       NOT NULL COMMENT '所属章节',
-    node_type  VARCHAR(20)  NOT NULL COMMENT 'TEXT / TIMELINE / QUOTE / PROCESS',
+    node_type  VARCHAR(20)  NOT NULL COMMENT 'TEXT / TIMELINE / QUOTE / PROCESS / BRANCH（分支抉择）',
     title      VARCHAR(100) NOT NULL COMMENT '节点标题',
     subtitle   VARCHAR(200) NULL COMMENT '副标题（图文节点可选）',
-    content    TEXT         NULL COMMENT '正文；术语以轻量标记存储（D-26）',
+    content    LONGTEXT     NULL COMMENT 'TEXT：正文块状 JSON（段落/图片混排）或历史纯文本；PROCESS：适用范围说明；BRANCH：分支引导文案；术语以轻量标记存储（D-26）',
     source     VARCHAR(500) NULL COMMENT '资料来源',
     sort_order INT          NOT NULL DEFAULT 0 COMMENT '节点排序',
+    next_node_id BIGINT     NULL COMMENT '显式流向覆盖；NULL=按 sortOrder 的下一节点（分支叙事，并行段回汇用）',
+    flow_pos   VARCHAR(50)  NULL COMMENT '图编排画布坐标（x,y）',
     create_time DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted    TINYINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    KEY idx_chapter (chapter_id)
+    KEY idx_chapter (chapter_id),
+    KEY idx_next (next_node_id)
 ) ENGINE = InnoDB COMMENT = '章节叙事节点';
 
 -- 5. 人物口述节点扩展（node_type = QUOTE）
@@ -122,12 +125,25 @@ CREATE TABLE node_media_relation (
     KEY idx_node (node_id)
 ) ENGINE = InnoDB COMMENT = '叙事节点与媒体引用';
 
+-- 8.1 分支抉择选项（node_type = BRANCH，分支叙事）
+CREATE TABLE node_choice (
+    id             BIGINT      NOT NULL AUTO_INCREMENT,
+    node_id        BIGINT      NOT NULL COMMENT '所属 BRANCH 节点',
+    label          VARCHAR(50) NOT NULL COMMENT '按钮文案，如「去制胎坊」',
+    target_node_id BIGINT      NOT NULL COMMENT '选中后到达的同章节点',
+    sort_order     INT         NOT NULL DEFAULT 0 COMMENT '按钮排序',
+    create_time    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_node (node_id)
+) ENGINE = InnoDB COMMENT = '分支抉择选项（BRANCH 节点的按钮）';
+
 -- 9. 历史事件（ADM-07；时间轴数据源）
 CREATE TABLE timeline_event (
     id          BIGINT       NOT NULL AUTO_INCREMENT,
     event_time  VARCHAR(100) NOT NULL COMMENT '时间或时期（年代不明用时期表述，不编造年份）',
     title       VARCHAR(100) NOT NULL COMMENT '事件名称',
-    description TEXT         NULL COMMENT '事件说明',
+    description LONGTEXT     NULL COMMENT '事件说明（富文本 HTML）',
     media_id    BIGINT       NULL COMMENT '配图（可空）',
     source      VARCHAR(500) NOT NULL COMMENT '资料来源（5.2 必填）',
     status      TINYINT      NOT NULL DEFAULT 0 COMMENT '0 草稿 / 1 已发布 / 2 已下架',
@@ -145,9 +161,9 @@ CREATE TABLE artifact (
     name         VARCHAR(100) NOT NULL COMMENT '藏品名称',
     era          VARCHAR(100) NULL COMMENT '年代',
     material     VARCHAR(200) NULL COMMENT '材质',
-    craft_desc   TEXT         NULL COMMENT '工艺说明',
-    story        TEXT         NULL COMMENT '文化故事',
-    motif_meaning TEXT        NULL COMMENT '纹饰寓意',
+    craft_desc   LONGTEXT     NULL COMMENT '工艺说明（富文本 HTML）',
+    story        LONGTEXT     NULL COMMENT '文化故事（富文本 HTML）',
+    motif_meaning LONGTEXT    NULL COMMENT '纹饰寓意（富文本 HTML）',
     main_image_url VARCHAR(500) NOT NULL COMMENT '主展示图',
     source       VARCHAR(500) NOT NULL COMMENT '资料来源',
     authorization_note VARCHAR(500) NULL COMMENT '授权说明',
@@ -167,8 +183,8 @@ CREATE TABLE artifact (
 CREATE TABLE craft (
     id          BIGINT       NOT NULL AUTO_INCREMENT,
     name        VARCHAR(100) NOT NULL COMMENT '工艺名称',
-    overview    TEXT         NULL COMMENT '概述',
-    feature     TEXT         NULL COMMENT '特色说明',
+    overview    LONGTEXT     NULL COMMENT '概述（富文本 HTML）',
+    feature     LONGTEXT     NULL COMMENT '特色说明（富文本 HTML）',
     scope       VARCHAR(500) NULL COMMENT '适用范围（工序因器而异说明）',
     source      VARCHAR(500) NULL COMMENT '资料来源',
     status      TINYINT      NOT NULL DEFAULT 0 COMMENT '0 草稿 / 1 已发布 / 2 已下架',
@@ -199,9 +215,9 @@ CREATE TABLE inheritor (
     id           BIGINT       NOT NULL AUTO_INCREMENT,
     name         VARCHAR(50)  NOT NULL COMMENT '姓名',
     photo_url    VARCHAR(500) NULL COMMENT '人物照片',
-    intro        TEXT         NULL COMMENT '简介',
-    career       TEXT         NULL COMMENT '从艺经历',
-    story        TEXT         NULL COMMENT '传承故事',
+    intro        LONGTEXT     NULL COMMENT '简介（富文本 HTML）',
+    career       LONGTEXT     NULL COMMENT '从艺经历（富文本 HTML）',
+    story        LONGTEXT     NULL COMMENT '传承故事（富文本 HTML）',
     source       VARCHAR(500) NOT NULL COMMENT '资料来源',
     audit_status TINYINT      NOT NULL DEFAULT 0 COMMENT '0 未审核 / 1 已审核（D-20）',
     audit_by     VARCHAR(50)  NULL COMMENT '审核人',
@@ -218,7 +234,7 @@ CREATE TABLE inheritor (
 CREATE TABLE term (
     id           BIGINT       NOT NULL AUTO_INCREMENT,
     name         VARCHAR(50)  NOT NULL COMMENT '术语名称',
-    definition   TEXT         NOT NULL COMMENT '释义',
+    definition   LONGTEXT     NOT NULL COMMENT '释义（富文本 HTML）',
     source       VARCHAR(500) NULL COMMENT '来源',
     audit_status TINYINT      NOT NULL DEFAULT 0 COMMENT '0 未审核 / 1 已审核',
     audit_by     VARCHAR(50)  NULL COMMENT '审核人',
@@ -236,7 +252,7 @@ CREATE TABLE motif (
     id          BIGINT       NOT NULL AUTO_INCREMENT,
     name        VARCHAR(100) NOT NULL COMMENT '纹饰名称',
     image_url   VARCHAR(500) NULL COMMENT '纹饰图片',
-    cultural_explain TEXT    NULL COMMENT '文化解释（须有可靠依据）',
+    cultural_explain LONGTEXT NULL COMMENT '文化解释（富文本 HTML，须有可靠依据）',
     source      VARCHAR(500) NOT NULL COMMENT '资料来源',
     status      TINYINT      NOT NULL DEFAULT 0 COMMENT '0 草稿 / 1 已发布 / 2 已下架',
     create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -294,6 +310,7 @@ CREATE TABLE user_progress (
     anonymous_id   VARCHAR(64) NOT NULL,
     chapter_id     BIGINT      NOT NULL,
     last_node_id   BIGINT      NULL COMMENT '最后阅读节点',
+    choice_path    VARCHAR(500) NULL COMMENT '分支选择路径 JSON：[{"n":分支节点id,"c":选项id}]（分支叙事断点续读）',
     completed      TINYINT     NOT NULL DEFAULT 0 COMMENT '是否已完成本章（点击完成本章触发）',
     complete_time  DATETIME    NULL COMMENT '完成时间',
     last_read_time DATETIME    NULL COMMENT '最近阅读时间',

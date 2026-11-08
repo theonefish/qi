@@ -5,7 +5,9 @@ import com.example.qi.common.PageResult;
 import com.example.qi.common.Result;
 import com.example.qi.module.chapter.dto.ChapterPublishRequest;
 import com.example.qi.module.chapter.dto.ChapterSaveRequest;
+import com.example.qi.module.chapter.dto.FlowLayoutRequest;
 import com.example.qi.module.chapter.entity.Chapter;
+import com.example.qi.module.chapter.service.ChapterFlowService;
 import com.example.qi.module.chapter.service.ChapterService;
 import com.example.qi.module.publish.entity.PublishRecord;
 import com.example.qi.module.publish.service.PublishRecordService;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminChapterController {
 
     private final ChapterService chapterService;
+    private final ChapterFlowService chapterFlowService;
     private final PublishRecordService publishRecordService;
 
     @GetMapping
@@ -83,5 +86,20 @@ public class AdminChapterController {
     @GetMapping("/{id}/publish-records")
     public Result<?> publishRecords(@PathVariable Long id) {
         return Result.ok(publishRecordService.listByObject("chapter", id));
+    }
+
+    // ---- 分支叙事：图编排（分支叙事设计稿 §7.4） ----
+
+    /** 图编排数据：节点 + 选项 + 入口/收尾（inDegree 后端现算） */
+    @GetMapping("/{id}/flow")
+    public Result<ChapterFlowService.FlowView> flow(@PathVariable Long id) {
+        return Result.ok(chapterFlowService.flowView(id));
+    }
+
+    /** 批量保存画布坐标（拖动防抖调用） */
+    @PutMapping("/{id}/flow-layout")
+    public Result<Void> flowLayout(@PathVariable Long id, @Valid @RequestBody FlowLayoutRequest request) {
+        chapterFlowService.saveLayout(id, request.getItems());
+        return Result.ok();
     }
 }

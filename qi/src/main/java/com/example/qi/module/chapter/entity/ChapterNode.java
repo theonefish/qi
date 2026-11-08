@@ -24,7 +24,7 @@ public class ChapterNode {
 
     private Long chapterId;
 
-    /** TEXT / TIMELINE / QUOTE / PROCESS（NodeType 枚举） */
+    /** TEXT / TIMELINE / QUOTE / PROCESS / BRANCH（NodeType 枚举） */
     private String nodeType;
 
     private String title;
@@ -42,6 +42,15 @@ public class ChapterNode {
     private String source;
 
     private Integer sortOrder;
+
+    /**
+     * 显式流向覆盖（分支叙事）：NULL = 按 sortOrder 的下一节点。
+     * 并行分支段回汇必须显式指向汇合节点；BRANCH 节点恒为空（强制选择，走向由选项决定）。
+     */
+    private Long nextNodeId;
+
+    /** 图编排画布坐标（x,y），后台分支编排页使用 */
+    private String flowPos;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

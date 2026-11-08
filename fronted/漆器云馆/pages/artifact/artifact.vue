@@ -19,18 +19,18 @@
 			</view>
 		</view>
 
-		<!-- 档案模块：无数据整块隐藏（FR-08） -->
+		<!-- 档案模块：无数据整块隐藏（FR-08）；富文本图文混排 -->
 		<view class="section" v-if="artifact.craftDesc">
 			<text class="s-title">工艺说明</text>
-			<text class="s-text">{{ artifact.craftDesc }}</text>
+			<rich-text class="rich" :nodes="toRichHtml(artifact.craftDesc)"></rich-text>
 		</view>
 		<view class="section" v-if="artifact.story">
 			<text class="s-title">文化故事</text>
-			<text class="s-text">{{ artifact.story }}</text>
+			<rich-text class="rich" :nodes="toRichHtml(artifact.story)"></rich-text>
 		</view>
 		<view class="section" v-if="artifact.motifMeaning">
 			<text class="s-title">纹饰寓意</text>
-			<text class="s-text">{{ artifact.motifMeaning }}</text>
+			<rich-text class="rich" :nodes="toRichHtml(artifact.motifMeaning)"></rich-text>
 		</view>
 
 		<!-- 关联内容（5.4：仅有效目标） -->
@@ -62,8 +62,9 @@
 <script setup>
 	import { ref } from 'vue';
 	import { onLoad } from '@dcloudio/uni-app';
-	import { api, fullUrl } from '../../utils/api.js';
+	import { api, fullUrl, full } from '../../utils/api.js';
 	import { anonymousId } from '../../utils/visitor.js';
+	import { toRichHtml } from '../../utils/term.js';
 
 	const artifact = ref(null);
 	const categoryName = ref('');
@@ -151,6 +152,7 @@
 		padding-left: 18rpx; border-left: 6rpx solid $gold; line-height: 1.3;
 	}
 	.s-text { font-size: 26rpx; color: #645b52; line-height: 2; }
+	.rich { display: block; }
 	.relation-card {
 		display: flex; align-items: center; gap: 20rpx; background: $paper2;
 		border: 1rpx solid #e5d8c7; border-radius: 18rpx; padding: 20rpx; margin-top: 18rpx;

@@ -3,6 +3,7 @@ package com.example.qi.module.inheritor.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.qi.common.BusinessException;
 import com.example.qi.common.ContentStatus;
+import com.example.qi.common.HtmlTextUtils;
 import com.example.qi.module.artifact.entity.Artifact;
 import com.example.qi.module.artifact.mapper.ArtifactMapper;
 import com.example.qi.module.auth.service.AuthService;
@@ -12,6 +13,7 @@ import com.example.qi.module.inheritor.entity.Inheritor;
 import com.example.qi.module.inheritor.mapper.InheritorMapper;
 import com.example.qi.module.publish.entity.PublishRecord;
 import com.example.qi.module.publish.service.PublishRecordService;
+import com.example.qi.module.relation.dto.RelationSaveRequest;
 import com.example.qi.module.relation.entity.ContentRelation;
 import com.example.qi.module.relation.service.RelationService;
 import jakarta.validation.constraints.NotBlank;
@@ -121,6 +123,21 @@ public class InheritorService {
         inheritorMapper.updateById(inheritor);
     }
 
+    /** 传承人关联（8.2：传承人↔藏品/工艺，代表作品与擅长技艺数据源） */
+    public void setRelations(Long id, RelationSaveRequest request) {
+        requireInheritor(id);
+        List<ContentRelation> relations = new ArrayList<>();
+        if (request.getTargets() != null) {
+            for (RelationSaveRequest.TargetItem item : request.getTargets()) {
+                ContentRelation relation = new ContentRelation();
+                relation.setTargetType(item.getTargetType());
+                relation.setTargetId(item.getTargetId());
+                relations.add(relation);
+            }
+        }
+        relationService.setRelations("inheritor", id, relations);
+    }
+
     // ---------------------------- 小程序端（FR-11） ----------------------------
 
     /** 传承人列表：仅已发布，含姓名、照片、简介 */
@@ -157,7 +174,7 @@ public class InheritorService {
     // ---------------------------- 私有方法 ----------------------------
 
     private void validateForPublish(Inheritor inheritor) {
-        if (!StringUtils.hasText(inheritor.getName()) || !StringUtils.hasText(inheritor.getIntro())
+        if (!StringUtils.hasText(inheritor.getName()) || !HtmlTextUtils.hasText(inheritor.getIntro())
                 || !StringUtils.hasText(inheritor.getPhotoUrl()) || !StringUtils.hasText(inheritor.getSource())) {
             throw new BusinessException("发布条件不满足：姓名、简介、人物照片和资料来源必填（5.2）");
         }

@@ -130,7 +130,7 @@ TimelineEvent 字段：`id, eventTime, title, description, mediaId, source, stat
 | GET | /admin/chapters/{id}/publish-records | - | List\<PublishRecord\> |
 
 Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder, status, createTime`。
-章节发布校验：标题/封面/摘要/类型/排序必填 + 至少一个通过类型校验的叙事节点。
+章节发布校验：标题/封面/摘要/类型/排序必填 + 至少一个通过类型校验的叙事节点 + 分支流向图规则（无环 / 无孤岛 / 收尾节点唯一 / BRANCH 选项 ≥2，见 7.4）。
 
 ### 7.2 叙事节点管理（前缀 `/admin/chapters/{chapterId}/nodes`）
 
@@ -140,17 +140,18 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
 | GET | /admin/chapters/{chapterId}/nodes/{nodeId} | 节点详情：`{ node, quote, eventRefs[], craftRefs[], mediaRefs[] }`（编辑表单回显用） |
 | POST | /admin/chapters/{chapterId}/nodes | NodeSaveRequest，返回节点 id |
 | PUT | /admin/chapters/{chapterId}/nodes/{nodeId} | 同上 |
-| DELETE | /admin/chapters/{chapterId}/nodes/{nodeId} | 删除节点（扩展数据一并清除） |
+| DELETE | /admin/chapters/{chapterId}/nodes/{nodeId} | 删除节点（扩展数据物理删除；分支关系级联清理：自身选项、指向自身的选项、指向自身的覆盖边） |
 | POST | /admin/chapters/{chapterId}/nodes/{nodeId}/move | query：direction=up/down |
+| PUT | /admin/chapters/{chapterId}/nodes/{nodeId}/next | 流向覆盖连线（7.4）：body `{ "targetNodeId": 5 }` 或 `{ "targetNodeId": null }` 清除；BRANCH 节点不可设置（走向由选项决定） |
 
 **NodeSaveRequest（多态请求体，按 nodeType 校验）：**
 
 ```json
 {
-  "nodeType": "TEXT | TIMELINE | QUOTE | PROCESS",
+  "nodeType": "TEXT | TIMELINE | QUOTE | PROCESS | BRANCH",
   "title": "节点标题（必填）",
   "subtitle": "副标题（可选）",
-  "content": "TEXT：正文，术语写 [[term:ID]] 标记；PROCESS：适用范围说明（发布必填）",
+  "content": "TEXT：正文，术语写 [[term:ID]] 标记；PROCESS：适用范围说明；BRANCH：分支引导文案",
   "source": "资料来源",
 
   "media":  [ { "mediaId": 1, "caption": "图片说明" } ],
@@ -160,9 +161,17 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
   "quoteSource": "口述来源",
   "authorizationNote": "授权说明",
   "craftId": 1,
-  "craftStepIds": [3, 4]
+  "craftStepIds": [3, 4],
+
+  "nextNodeId": null,
+  "flowPos": "320,180",
+  "choices": [ { "label": "去制胎坊", "targetNodeId": 5 } ]
 }
 ```
+
+- `nextNodeId`：显式流向覆盖（分支叙事）；null=按 sortOrder 的下一节点。BRANCH 恒为 null
+- `flowPos`：图编排画布坐标，随节点保存（不传会被清空——结构变更必须全量回传，见 7.4）
+- `choices`：仅 BRANCH 有效；保存语义 **null=保留现有选项、[] =清空、非空=整体替换**（ChapterEdit 表单保存不带此字段，避免覆盖分支编排页配置）
 
 按类型的必填项：
 
@@ -172,6 +181,7 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
 | TIMELINE 时间轴 | title、eventIds（≥1，事件必须存在） | source |
 | QUOTE 人物口述 | title、inheritorId（必须存在）、quoteText | quoteSource、authorizationNote、source |
 | PROCESS 工序步骤 | title、craftId（必须存在）、content（适用范围说明） | craftStepIds（空=整工艺概览，须属于该工艺）、media[]、source |
+| BRANCH 分支抉择 | title、choices（target 须为同章存在节点且不重复；非空时每项须有文案。「≥2」由发布校验强制，保存允许 [] 与单选项中间态） | content（引导文案，建议填写）、subtitle、source |
 
 ### 7.3 小程序章节详情返回结构（GET /app/chapters/{id}）
 
@@ -183,7 +193,8 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
       "id": 10, "nodeType": "TEXT", "title": "...", "subtitle": "...", "content": "...（含 [[term:1]] 标记）", "source": "...",
       "media": [ { "id": 1, "url": "/files/2026/11/x.jpg", "caption": "..." } ],
       "events": [], "quoteText": null, "quoteSource": null, "inheritorName": null, "inheritorPhotoUrl": null,
-      "craft": null, "steps": []
+      "craft": null, "steps": [],
+      "nextNodeId": null, "choices": []
     },
     {
       "id": 11, "nodeType": "TIMELINE", "...": "...",
@@ -197,13 +208,31 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
       "id": 13, "nodeType": "PROCESS", "...": "...",
       "craft": { "id": 1, "name": "...", "scope": "..." },
       "steps": [ { "id": 3, "name": "制胎", "intro": "..." } ]
+    },
+    {
+      "id": 14, "nodeType": "BRANCH", "content": "你想先看哪条路线？", "nextNodeId": null,
+      "choices": [ { "id": 1, "label": "去制胎坊", "targetNodeId": 15 }, { "id": 2, "label": "去饰纹坊", "targetNodeId": 16 } ]
     }
   ],
   "relations": [ { "targetType": "artifact", "targetId": 5, "name": "汉代漆案" } ]
 }
 ```
 
-前端渲染规则：按 `nodes` 数组顺序渲染；`nodeType` 决定调用的组件（TextNode / TimelineNode / QuoteNode / ProcessNode）；TEXT 正文中的 `[[term:ID]]` 由前端解析为术语点击样式（术语详情接口待 term 模块完成后提供）。
+每个节点均带 `nextNodeId`（显式流向覆盖，null=按 sortOrder 的下一节点）与 `choices`（仅 BRANCH 非空）。接口**全量下发**节点——「重选」「浏览全部」需要未选分支的内容，前端本地按活跃路径裁剪渲染。
+
+前端渲染规则：默认按活跃路径渲染（入口 → 沿所选分支 / 覆盖边 / sortOrder 默认链 → 收尾节点）；BRANCH 节点渲染为抉择卡片（引导文案 + 按钮组），未选择不渲染后续内容（强制选择）；提供「重选」与「浏览全部」（未走分支灰显）；TEXT 正文中的 `[[term:ID]]` 由前端解析为术语点击样式。实现见 `pages/chapter/chapter.vue`（分支叙事设计稿 §10）。
+
+### 7.4 分支编排接口（/admin/chapters/{id}/flow，图编排页专用）
+
+| 方法 | 路径 | 请求 | 响应 data |
+| --- | --- | --- | --- |
+| GET | /admin/chapters/{id}/flow | - | `{ nodes: [{ id, nodeType, title, sortOrder, flowPos, nextNodeId, inDegree, choiceCount }], choices: [{ id, nodeId, label, targetNodeId, sortOrder }], entryNodeId, endNodeIds[] }`（inDegree 后端现算） |
+| PUT | /admin/chapters/{id}/flow-layout | `{ items: [{ nodeId, flowPos }] }` | -（批量保存画布坐标，拖动防抖调用；单批 ≤200） |
+| PUT | /admin/chapters/{id}/nodes/{nodeId}/next | `{ targetNodeId: Long \| null }` | -（覆盖边连线/清除；BRANCH 不可设置） |
+
+画布边语义（§11.2）：默认边=sortOrder 相邻链（灰、自动、不可编辑）；覆盖边=next_node_id（蓝、可拖拽改接/删除）；选项边=node_choice（橙虚线、label=按钮文案）。BRANCH 节点无默认边（强制选择）。选项增删走节点全量保存（7.2 的 choices 字段），payload 必须回传 `flowPos`/`nextNodeId` 防显式 set 清空。
+
+发布校验规则（POST /publish 时硬阻断，400 文案）：BRANCH 选项 ≥2 且文案非空；选项/覆盖目标须为同章节点且 ≠ 自身；全图无环；入口可达全部节点（无孤岛）；收尾节点唯一。软提示仅日志：分支点 >2、嵌套深度 >2、引导文案为空。
 
 ## 8. 小程序端接口（/app，全部匿名，仅返回已发布内容）
 
@@ -219,14 +248,15 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
 | GET | /app/inheritors | - | List\<Inheritor\>（姓名/照片/简介，仅已发布） |
 | GET | /app/inheritors/{id} | - | `{ inheritor, works: [{ id, name, mainImageUrl }], crafts: [{ id, name }] }`（代表作品与擅长技艺，仅有效目标） |
 | GET | /app/terms | query：ids=1,2,3 | List：`{ id, name, definition, source }`（仅已发布；正文 [[term:ID]] 标记解析后批量调用） |
+| GET | /app/motifs | - | List：`{ id, name, imageUrl, culturalExplain, source }`（仅已发布；纹饰主题页，FR 补充） |
 
 ### 8.1 访客接口（/app/visitor，匿名；anonymousId = 前端本地生成并长期保存的 UUID）
 
 | 方法 | 路径 | 请求 | 响应 data |
 | --- | --- | --- | --- |
 | GET | /app/visitor/summary | query：anonymousId | `{ completedMain, totalMain, progressPercent, favoriteCount, lastRead }`；lastRead = `{ chapterId, chapterTitle, nodeId, nodeTitle, readTime }` 或 null（章节失效时，前端回云展馆） |
-| GET | /app/visitor/progress | query：anonymousId | List：`{ chapterId, title, chapterType, completed, completeTime, lastNodeId, lastReadTime }`（全部已发布章节，含序章已读标记） |
-| POST | /app/visitor/progress/read | body `{ anonymousId, chapterId, nodeId }` | -（浏览到节点时更新阅读位置，5.6） |
+| GET | /app/visitor/progress | query：anonymousId | List：`{ chapterId, title, chapterType, completed, completeTime, lastNodeId, lastReadTime, choicePath }`（全部已发布章节，含序章已读标记；choicePath = 分支选择路径 JSON `[{"n":分支节点id,"c":选项id}]`，续读时还原，分支叙事 §10.3） |
+| POST | /app/visitor/progress/read | body `{ anonymousId, chapterId, nodeId, choicePath? }` | -（浏览到节点时更新阅读位置，5.6；choicePath 可选，≤500 字符原样存储，前端写前端读） |
 | POST | /app/visitor/progress/complete | body `{ anonymousId, chapterId }` | `{ firstTime, completedMain, totalMain, progressPercent }`（幂等；序章完成不计入进度分母；首次完成自动记录 complete_chapter 事件） |
 | POST | /app/visitor/favorites | body `{ anonymousId, targetType: "artifact", targetId }` | -（幂等；P0 仅藏品） |
 | DELETE | /app/visitor/favorites | query：anonymousId、targetType、targetId | - |
@@ -244,12 +274,13 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
     { "eventType": "enter_chapter", "chapterId": 1 },
     { "eventType": "view_node", "chapterId": 1, "nodeId": 10 },
     { "eventType": "click_relation", "chapterId": 1, "targetType": "artifact", "targetId": 5 },
-    { "eventType": "back_main", "chapterId": 1 }
+    { "eventType": "back_main", "chapterId": 1 },
+    { "eventType": "choose_branch", "chapterId": 1, "nodeId": 14, "targetType": "choice", "targetId": 2 }
   ]
 }
 ```
 
-前端调用时机（7.11 口径）：进入章节详情页报 `enter_chapter`；节点首次进入视口报 `view_node`（同会话同节点服务端自动去重）；点击关联卡报 `click_relation`（带 targetType/targetId）；点击回到主线报 `back_main`（chapterId = 来源章节）。**完成章节不要上报**，由 complete 接口内部记录。事件可攒批合并上报以减少请求数；上报失败不要阻塞阅读，静默重试或丢弃即可。
+前端调用时机（7.11 口径）：进入章节详情页报 `enter_chapter`；节点首次进入视口报 `view_node`（同会话同节点服务端自动去重）；点击关联卡报 `click_relation`（带 targetType/targetId）；点击回到主线报 `back_main`（chapterId = 来源章节）；**分支抉择点选按钮报 `choose_branch`**（nodeId=BRANCH 节点，targetType='choice'，targetId=选项 id——分支受欢迎统计的数据源，分支叙事 §10.4）。**完成章节不要上报**，由 complete 接口内部记录。事件可攒批合并上报以减少请求数；上报失败不要阻塞阅读，静默重试或丢弃即可。
 
 ## 9. 数据统计（/admin/stats，需登录）
 

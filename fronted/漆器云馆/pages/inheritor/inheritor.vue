@@ -6,17 +6,17 @@
 			<view class="head-info">
 				<text class="kicker">INHERITOR · 传承人</text>
 				<text class="name">{{ person.name }}</text>
-				<text class="intro">{{ person.intro || '' }}</text>
+				<rich-text class="intro" v-if="person.intro" :nodes="toRichHtml(person.intro, true)"></rich-text>
 			</view>
 		</view>
 
 		<view class="section" v-if="person.career">
 			<text class="s-title">从艺经历</text>
-			<text class="s-text">{{ person.career }}</text>
+			<rich-text class="rich" :nodes="toRichHtml(person.career)"></rich-text>
 		</view>
 		<view class="section" v-if="person.story">
 			<text class="s-title">传承故事</text>
-			<text class="s-text">{{ person.story }}</text>
+			<rich-text class="rich" :nodes="toRichHtml(person.story)"></rich-text>
 		</view>
 
 		<!-- 代表作品（FR-11：进入藏品详情） -->
@@ -50,7 +50,8 @@
 <script setup>
 	import { ref } from 'vue';
 	import { onLoad } from '@dcloudio/uni-app';
-	import { api, fullUrl } from '../../utils/api.js';
+	import { api, fullUrl, full } from '../../utils/api.js';
+	import { toRichHtml } from '../../utils/term.js';
 
 	const person = ref(null);
 	const works = ref([]);
@@ -96,6 +97,7 @@
 		padding-left: 18rpx; border-left: 6rpx solid $gold; line-height: 1.3;
 	}
 	.s-text { font-size: 26rpx; color: #645b52; line-height: 2; }
+	.rich { display: block; }
 	.rel-card {
 		display: flex; align-items: center; gap: 20rpx; background: $paper2;
 		border: 1rpx solid #e5d8c7; border-radius: 18rpx; padding: 20rpx; margin-bottom: 18rpx;

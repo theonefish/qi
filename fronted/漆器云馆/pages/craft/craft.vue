@@ -3,14 +3,14 @@
 		<view class="head">
 			<text class="kicker">CRAFT · 工艺档案</text>
 			<text class="name">{{ craft.name }}</text>
-			<text class="overview" v-if="craft.overview">{{ craft.overview }}</text>
-			<text class="feature" v-if="craft.feature">{{ craft.feature }}</text>
+			<rich-text class="overview" v-if="craft.overview" :nodes="toRichHtml(craft.overview, true)"></rich-text>
+			<rich-text class="feature" v-if="craft.feature" :nodes="toRichHtml(craft.feature, true)"></rich-text>
 		</view>
 
 		<!-- 适用范围说明（FR-10：工序因器而异，不宣称通用） -->
 		<view class="note" v-if="craft.scope">
 			<text class="note-strong">适用范围：</text>
-			<text>{{ craft.scope }}</text>
+			<rich-text :nodes="toRichHtml(craft.scope)"></rich-text>
 		</view>
 
 		<!-- 工序步骤（后台配置顺序，FR-10） -->
@@ -21,7 +21,7 @@
 				<view class="st-body">
 					<text class="st-name">{{ s.name }}</text>
 					<image v-if="s.mediaUrl" :src="full(s.mediaUrl)" mode="widthFix" class="st-img" />
-					<text class="st-intro" v-if="s.intro">{{ s.intro }}</text>
+					<rich-text class="st-intro" v-if="s.intro" :nodes="toRichHtml(s.intro)"></rich-text>
 				</view>
 			</view>
 		</view>
@@ -47,7 +47,8 @@
 <script setup>
 	import { ref } from 'vue';
 	import { onLoad } from '@dcloudio/uni-app';
-	import { api, fullUrl } from '../../utils/api.js';
+	import { api, fullUrl, full } from '../../utils/api.js';
+	import { toRichHtml } from '../../utils/term.js';
 
 	const craft = ref(null);
 	const steps = ref([]);

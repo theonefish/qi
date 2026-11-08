@@ -46,7 +46,7 @@
 			<view class="entry" @click="go('/pages/progress/progress')">
 				<text class="entry-icon">程</text><text class="entry-name">参观进度</text>
 			</view>
-			<view class="entry disabled" @click="comingSoon">
+			<view class="entry" @click="go('/pages/motifs/motifs')">
 				<text class="entry-icon">饰</text><text class="entry-name">纹饰主题</text>
 			</view>
 			<view class="entry disabled" @click="comingSoon">

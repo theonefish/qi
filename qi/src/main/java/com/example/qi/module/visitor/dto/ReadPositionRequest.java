@@ -18,4 +18,7 @@ public class ReadPositionRequest {
 
     @NotNull(message = "缺少节点 ID")
     private Long nodeId;
+
+    /** 分支选择路径 JSON（可选，分支叙事断点续读；形如 [{"n":3,"c":1}]） */
+    private String choicePath;
 }

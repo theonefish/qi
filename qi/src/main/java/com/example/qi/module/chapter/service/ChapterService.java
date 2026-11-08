@@ -9,6 +9,7 @@ import com.example.qi.module.artifact.mapper.ArtifactMapper;
 import com.example.qi.module.chapter.dto.ChapterSaveRequest;
 import com.example.qi.module.chapter.entity.Chapter;
 import com.example.qi.module.chapter.entity.ChapterNode;
+import com.example.qi.module.chapter.entity.NodeChoice;
 import com.example.qi.module.chapter.mapper.ChapterMapper;
 import com.example.qi.module.chapter.mapper.ChapterNodeMapper;
 import com.example.qi.module.craft.entity.Craft;
@@ -27,6 +28,7 @@ import com.example.qi.module.relation.dto.RelationSaveRequest;
 import com.example.qi.module.relation.entity.ContentRelation;
 import com.example.qi.module.relation.service.RelationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
@@ -41,6 +43,7 @@ import java.util.stream.Collectors;
  * 章节业务（ADM-03 / FR-02 / FR-03）：CRUD、发布校验与发布记录、关联、小程序视图。
  * 发布流程与藏品一致（7.15.4）；发布校验含“至少一个有效叙事节点”（5.2）。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChapterService {
@@ -48,6 +51,7 @@ public class ChapterService {
     private final ChapterMapper chapterMapper;
     private final ChapterNodeMapper chapterNodeMapper;
     private final ChapterNodeService chapterNodeService;
+    private final ChapterFlowService chapterFlowService;
     private final RelationService relationService;
     private final PublishRecordService publishRecordService;
     private final ArtifactMapper artifactMapper;
@@ -66,13 +70,19 @@ public class ChapterService {
     public record AppRelationCard(String targetType, Long targetId, String name) {
     }
 
-    /** 小程序节点视图：四类节点字段扁平化，前端按 nodeType 取用 */
+    /** 小程序节点视图：五类节点字段扁平化，前端按 nodeType 取用；TEXT 的 contentHtml 为图文混排富文本 */
     public record AppNodeView(Long id, String nodeType, String title, String subtitle,
                               String content, String source,
+                              String contentHtml,
                               List<MediaAsset> media, List<TimelineEvent> events,
                               String quoteText, String quoteSource,
                               String inheritorName, String inheritorPhotoUrl,
-                              Craft craft, List<CraftStep> steps) {
+                              Craft craft, List<CraftStep> steps,
+                              Long nextNodeId, List<AppChoiceView> choices) {
+    }
+
+    /** 小程序分支选项视图（仅 BRANCH 节点非空，分支叙事设计稿 §9.7） */
+    public record AppChoiceView(Long id, String label, Long targetNodeId) {
     }
 
     public record AppChapterDetail(Chapter chapter, List<AppNodeView> nodes, List<AppRelationCard> relations) {
@@ -125,10 +135,11 @@ public class ChapterService {
 
     /** 删除章节：节点一并逻辑删除（7.10 软删除） */
     public void delete(Long id) {
-        requireChapter(id);
+        Chapter chapter = requireChapter(id);
         chapterNodeMapper.delete(Wrappers.<ChapterNode>lambdaQuery()
                 .eq(ChapterNode::getChapterId, id));
         chapterMapper.deleteById(id);
+        log.info("章节删除（节点一并删除）：chapterId={} title={}", id, chapter.getTitle());
     }
 
     public PublishRecord publish(Long id, String modifySummary) {
@@ -141,9 +152,11 @@ public class ChapterService {
             chapter.setStatus(ContentStatus.PUBLISHED.getCode());
             chapterMapper.updateById(chapter);
             publishRecordService.finish(record, true, null);
+            log.info("章节发布成功：chapterId={} title={} modifySummary={}", id, chapter.getTitle(), modifySummary);
             return record;
         } catch (RuntimeException e) {
             publishRecordService.finish(record, false, e.getMessage());
+            log.error("章节发布失败：chapterId={} title={}", id, chapter.getTitle(), e);
             throw e;
         }
     }
@@ -152,6 +165,7 @@ public class ChapterService {
         Chapter chapter = requireChapter(id);
         chapter.setStatus(ContentStatus.OFF_SHELF.getCode());
         chapterMapper.updateById(chapter);
+        log.info("章节下架：chapterId={} title={}", id, chapter.getTitle());
     }
 
     public void setRelations(Long id, RelationSaveRequest request) {
@@ -178,22 +192,29 @@ public class ChapterService {
                 .orderByAsc(Chapter::getId));
     }
 
-    /** 章节详情（FR-03）：节点按配置顺序 + 类型扩展数据 + 有效关联卡 */
+    /** 章节详情（FR-03）：节点按配置顺序 + 类型扩展数据 + 有效关联卡；BRANCH 节点附选项（分支叙事） */
     public AppChapterDetail appDetail(Long id) {
         Chapter chapter = chapterMapper.selectById(id);
         if (chapter == null || chapter.getStatus() != ContentStatus.PUBLISHED.getCode()) {
             throw new BusinessException(404, "章节不存在或已下架");
         }
+        List<ChapterNode> stored = chapterNodeService.listByChapter(id);
+        // 选项一次 IN 查询分组（§9.7：避免节点循环内 N 次查询）
+        List<NodeChoice> allChoices = chapterFlowService.listChoices(stored);
+        Map<Long, List<NodeChoice>> choiceMap = allChoices.stream()
+                .collect(Collectors.groupingBy(NodeChoice::getNodeId));
         List<AppNodeView> nodes = new ArrayList<>();
-        for (ChapterNode node : chapterNodeService.listByChapter(id)) {
-            nodes.add(toAppNodeView(node, chapterNodeService.detail(node.getId())));
+        for (ChapterNode node : stored) {
+            nodes.add(toAppNodeView(node, chapterNodeService.detail(node.getId()),
+                    choiceMap.getOrDefault(node.getId(), List.of())));
         }
         return new AppChapterDetail(chapter, nodes, buildRelationCards(id));
     }
 
     // ---------------------------- 私有方法 ----------------------------
 
-    private AppNodeView toAppNodeView(ChapterNode node, ChapterNodeService.NodeDetail detail) {
+    private AppNodeView toAppNodeView(ChapterNode node, ChapterNodeService.NodeDetail detail,
+                                      List<NodeChoice> choices) {
         List<MediaAsset> media = resolveMedia(detail.mediaRefs());
         List<TimelineEvent> events = List.of();
         String quoteText = null;
@@ -202,6 +223,7 @@ public class ChapterService {
         String inheritorPhotoUrl = null;
         Craft craft = null;
         List<CraftStep> steps = List.of();
+        String contentHtml = "";
         switch (node.getNodeType()) {
             case "TIMELINE" -> {
                 List<Long> eventIds = detail.eventRefs().stream()
@@ -238,11 +260,99 @@ public class ChapterService {
                 }
             }
             default -> {
+                // TEXT：输出图文混排富文本 HTML，历史块状 JSON/纯文本自动转换
+                contentHtml = buildTextHtml(node.getNodeType(), node.getContent(), detail.mediaRefs());
             }
         }
+        List<AppChoiceView> choiceViews = choices.stream()
+                .map(c -> new AppChoiceView(c.getId(), c.getLabel(), c.getTargetNodeId())).toList();
         return new AppNodeView(node.getId(), node.getNodeType(), node.getTitle(), node.getSubtitle(),
-                node.getContent(), node.getSource(), media, events,
-                quoteText, quoteSource, inheritorName, inheritorPhotoUrl, craft, steps);
+                node.getContent(), node.getSource(), contentHtml, media, events,
+                quoteText, quoteSource, inheritorName, inheritorPhotoUrl, craft, steps,
+                node.getNextNodeId(), choiceViews);
+    }
+
+    /**
+     * TEXT 正文输出为 HTML：富文本编辑器产物（< 开头）直接输出；
+     * 历史块状 JSON / 纯文本自动转换为段落 + 图片混排 HTML（图片补访问地址，术语标记保留为文本）。
+     */
+    private String buildTextHtml(String nodeType, String content,
+                                 List<com.example.qi.module.chapter.entity.NodeMediaRelation> refs) {
+        if (!"TEXT".equals(nodeType)) {
+            return "";
+        }
+        String trimmed = content == null ? "" : content.trim();
+        if (trimmed.startsWith("<")) {
+            return content;
+        }
+        StringBuilder html = new StringBuilder();
+        List<Map<String, Object>> blocks = tryParseBlocks(trimmed);
+        if (blocks != null) {
+            for (Map<String, Object> block : blocks) {
+                String type = String.valueOf(block.get("type"));
+                if ("image".equals(type)) {
+                    String caption = block.get("caption") == null ? "" : String.valueOf(block.get("caption"));
+                    html.append(imageHtml(asMediaUrl(block.get("mediaId")), caption));
+                } else {
+                    html.append(paragraphHtml(block.get("text") == null ? "" : String.valueOf(block.get("text"))));
+                }
+            }
+            return html.toString();
+        }
+        if (StringUtils.hasText(trimmed)) {
+            for (String line : content.split("\n+")) {
+                html.append(paragraphHtml(line));
+            }
+        }
+        for (com.example.qi.module.chapter.entity.NodeMediaRelation ref : refs) {
+            html.append(imageHtml(asMediaUrl(ref.getMediaId()), ref.getCaption() == null ? "" : ref.getCaption()));
+        }
+        return html.toString();
+    }
+
+    private String asMediaUrl(Object mediaId) {
+        if (mediaId == null) {
+            return "";
+        }
+        MediaAsset asset = mediaAssetMapper.selectById(Long.valueOf(String.valueOf(mediaId)));
+        return asset == null ? "" : asset.getUrl();
+    }
+
+    private String paragraphHtml(String text) {
+        String safe = escapeHtml(text == null ? "" : text.trim());
+        return safe.isEmpty() ? "" : "<p>" + safe + "</p>";
+    }
+
+    private String imageHtml(String url, String caption) {
+        if (!StringUtils.hasText(url)) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("<p><img src=\"").append(url).append("\" style=\"max-width:100%;\" /></p>");
+        if (StringUtils.hasText(caption)) {
+            sb.append("<p style=\"color:#81776d;font-size:12px;\">").append(escapeHtml(caption)).append("</p>");
+        }
+        return sb.toString();
+    }
+
+    private String escapeHtml(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> tryParseBlocks(String content) {
+        if (!StringUtils.hasText(content)) {
+            return null;
+        }
+        String trimmed = content.trim();
+        if (!trimmed.startsWith("[")) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(trimmed, List.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private List<MediaAsset> resolveMedia(List<com.example.qi.module.chapter.entity.NodeMediaRelation> refs) {
@@ -301,6 +411,9 @@ public class ChapterService {
         for (ChapterNode node : nodes) {
             chapterNodeService.validateStoredNode(node);
         }
+        // 分支叙事流向图校验（§3.3 硬阻断 + 软提示；BRANCH 类型数据由 validateStoredNode 之外的图规则覆盖）
+        List<NodeChoice> choices = chapterFlowService.listChoices(nodes);
+        chapterFlowService.validateForPublish(nodes, choices);
     }
 
     private void copyProperties(ChapterSaveRequest request, Chapter chapter) {

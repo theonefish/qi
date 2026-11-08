@@ -5,6 +5,7 @@ import com.example.qi.module.craft.entity.Craft;
 import com.example.qi.module.craft.entity.CraftStep;
 import com.example.qi.module.craft.service.CraftService;
 import com.example.qi.module.publish.entity.PublishRecord;
+import com.example.qi.module.relation.dto.RelationSaveRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,13 @@ public class AdminCraftController {
     @PostMapping("/{id}/off-shelf")
     public Result<Void> offShelf(@PathVariable Long id) {
         craftService.offShelf(id);
+        return Result.ok();
+    }
+
+    /** 工艺关联管理（8.2） */
+    @PutMapping("/{id}/relations")
+    public Result<Void> setRelations(@PathVariable Long id, @Valid @RequestBody RelationSaveRequest request) {
+        craftService.setRelations(id, request);
         return Result.ok();
     }
 

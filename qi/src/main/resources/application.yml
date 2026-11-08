@@ -26,3 +26,11 @@ springdoc:
 
 file:
   storage-dir: D:/shuqi-upload/   # 本地媒体文件目录（9.1 本地存储口径），WebConfig 映射为 /files/**
+
+logging:
+  file:
+    name: logs/qi-backend.log     # 控制台 + 文件双输出，滚动策略走默认（按大小轮转）
+  level:
+    com.example.qi: info          # 业务日志基线；高频调试日志用 debug（如阅读位置上报）
+    org.springframework.web: warn
+

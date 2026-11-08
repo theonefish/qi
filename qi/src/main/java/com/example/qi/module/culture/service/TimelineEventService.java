@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.qi.common.BusinessException;
 import com.example.qi.common.ContentStatus;
+import com.example.qi.common.HtmlTextUtils;
 import com.example.qi.module.culture.entity.TimelineEvent;
 import com.example.qi.module.culture.mapper.TimelineEventMapper;
 import com.example.qi.module.publish.entity.PublishRecord;
@@ -67,7 +68,7 @@ public class TimelineEventService {
     public PublishRecord publish(Long id, String modifySummary) {
         TimelineEvent event = requireEvent(id);
         if (!StringUtils.hasText(event.getEventTime()) || !StringUtils.hasText(event.getTitle())
-                || !StringUtils.hasText(event.getDescription()) || !StringUtils.hasText(event.getSource())) {
+                || !HtmlTextUtils.hasText(event.getDescription()) || !StringUtils.hasText(event.getSource())) {
             throw new BusinessException("发布条件不满足：时间、名称、事件介绍和资料来源必填（5.2）");
         }
         PublishRecord record = publishRecordService.createPublishing(

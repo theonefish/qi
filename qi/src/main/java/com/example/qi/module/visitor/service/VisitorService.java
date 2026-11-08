@@ -17,6 +17,7 @@ import com.example.qi.module.visitor.mapper.BehaviorEventMapper;
 import com.example.qi.module.visitor.mapper.UserFavoriteMapper;
 import com.example.qi.module.visitor.mapper.UserProgressMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -33,13 +34,14 @@ import java.util.stream.Collectors;
  * 访客服务：收藏（FR-09）、断点续读与参观进度（FR-05 / 5.5 / 5.6）、行为上报（ADM-11 / 7.11）。
  * 全部按本地生成的匿名标识在服务端存储（D-05）。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VisitorService {
 
     private static final String TYPE_ARTIFACT = "artifact";
     /** 允许前端上报的事件类型；complete_chapter 由完成本章接口内部记录（7.11 口径） */
-    private static final Set<String> REPORTABLE_EVENTS = Set.of("enter_chapter", "view_node", "click_relation", "back_main");
+    private static final Set<String> REPORTABLE_EVENTS = Set.of("enter_chapter", "view_node", "click_relation", "back_main", "choose_branch");
 
     private final UserFavoriteMapper favoriteMapper;
     private final UserProgressMapper progressMapper;
@@ -55,7 +57,8 @@ public class VisitorService {
     }
 
     public record ChapterProgressItem(Long chapterId, String title, Integer chapterType, boolean completed,
-                                      LocalDateTime completeTime, Long lastNodeId, LocalDateTime lastReadTime) {
+                                      LocalDateTime completeTime, Long lastNodeId, LocalDateTime lastReadTime,
+                                      String choicePath) {
     }
 
     /** 首页“继续参观”定位信息（FR-01：显示章节和节点信息） */
@@ -124,8 +127,8 @@ public class VisitorService {
 
     // ---------------------------- 进度与断点续读 ----------------------------
 
-    /** 浏览到节点时更新阅读位置（5.6）；从详情页返回主线由前端控制不调用本接口 */
-    public void updateReadPosition(String anonymousId, Long chapterId, Long nodeId) {
+    /** 浏览到节点时更新阅读位置（5.6）；choicePath 为分支选择路径 JSON（分支叙事 §9.8，原样存储） */
+    public void updateReadPosition(String anonymousId, Long chapterId, Long nodeId, String choicePath) {
         checkAnonymous(anonymousId);
         Chapter chapter = requirePublishedChapter(chapterId);
         ChapterNode node = nodeMapper.selectById(nodeId);
@@ -134,8 +137,18 @@ public class VisitorService {
         }
         upsertProgress(anonymousId, chapterId, progress -> {
             progress.setLastNodeId(nodeId);
+            // 分支路径 ≤500 字符（§9.8），超长截断兜底
+            progress.setChoicePath(choicePath == null || choicePath.length() <= 500
+                    ? choicePath : choicePath.substring(0, 500));
             progress.setLastReadTime(LocalDateTime.now());
         });
+        // 滚动高频上报，debug 级别；带分支路径时用 info 观察选择流
+        if (StringUtils.hasText(choicePath)) {
+            log.info("阅读位置（含分支路径）：anon={} chapter={} node={} choicePath={}",
+                    anonymousId, chapterId, nodeId, choicePath);
+        } else {
+            log.debug("阅读位置上报：anon={} chapter={} node={}", anonymousId, chapterId, nodeId);
+        }
     }
 
     /** 完成本章（幂等）：序章同样标记完成但不计入进度分母（D-02）；首次完成记录行为事件 */
@@ -162,6 +175,7 @@ public class VisitorService {
         }
         if (firstTime) {
             insertEvent(anonymousId, null, "complete_chapter", chapterId, null, null, null);
+            log.info("章节首次完成：anon={} chapterId={}", anonymousId, chapterId);
         }
         long[] progress = calcProgress(anonymousId);
         return new CompleteResult(firstTime, progress[0], progress[1], (int) progress[2]);
@@ -184,7 +198,8 @@ public class VisitorService {
                     progress != null && progress.getCompleted() != null && progress.getCompleted() == 1,
                     progress == null ? null : progress.getCompleteTime(),
                     progress == null ? null : progress.getLastNodeId(),
-                    progress == null ? null : progress.getLastReadTime()));
+                    progress == null ? null : progress.getLastReadTime(),
+                    progress == null ? null : progress.getChoicePath()));
         }
         return items;
     }
@@ -251,7 +266,13 @@ public class VisitorService {
             }
             behaviorEventMapper.insert(event);
             saved++;
+            // 分支选择单独 info（内容策划关心的「哪条分支更受欢迎」数据源）
+            if ("choose_branch".equals(event.getEventType())) {
+                log.info("分支选择上报：anon={} chapter={} branchNode={} choice={}",
+                        anonymousId, event.getChapterId(), event.getNodeId(), event.getTargetId());
+            }
         }
+        log.debug("行为上报入库：anon={} 传入={} 入库={}", anonymousId, items.size(), saved);
         return saved;
     }
 
@@ -335,6 +356,9 @@ public class VisitorService {
             case "click_relation" -> event.getChapterId() != null
                     && StringUtils.hasText(event.getTargetType()) && event.getTargetId() != null;
             case "back_main" -> event.getChapterId() != null;
+            // 分支抉择（分支叙事 §10.4）：nodeId=BRANCH 节点，target_id=选项 id
+            case "choose_branch" -> event.getChapterId() != null && event.getNodeId() != null
+                    && event.getTargetId() != null;
             default -> false;
         };
     }
