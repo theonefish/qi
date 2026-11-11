@@ -73,5 +73,9 @@ export const api = {
 	removeFavorite: (params) => request('/app/visitor/favorites' + qs(params), { method: 'DELETE' }),
 	isFavorite: (anonymousId, targetType, targetId) =>
 		request('/app/visitor/favorites/exists' + qs({ anonymousId, targetType, targetId })),
+	// 浏览记录（FR-12 P1）
+	history: (anonymousId, limit) => request('/app/visitor/history' + qs({ anonymousId, limit })),
+	recordHistory: (data) => request('/app/visitor/history', { method: 'POST', data }),
+	clearHistory: (anonymousId) => request('/app/visitor/history' + qs({ anonymousId }), { method: 'DELETE' }),
 	reportBehaviors: (data) => request('/app/visitor/behaviors', { method: 'POST', data })
 };

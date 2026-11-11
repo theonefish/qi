@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>蜀漆云馆 · 分端功能结构图（按操作顺序）</title>
+<style>
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; background: #f2f3f5; }
+
+  body {
+    padding: 34px 20px 48px;
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: #2f3742;
+  }
+
+  .page { width: min(1200px, 100%); margin: 0 auto; }
+
+  .doc-head { margin-bottom: 26px; }
+
+  .doc-head h1 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+  }
+
+  .doc-head p {
+    margin: 7px 0 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #8a919b;
+  }
+
+  .figure {
+    margin-top: 30px;
+    padding: 20px 22px 16px;
+    background: #fff;
+    border: 1px solid #e6e8ec;
+    border-radius: 12px;
+  }
+
+  .fig-head { margin-bottom: 10px; }
+
+  .fig-title { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
+
+  .fig-meta { margin-top: 6px; font-size: 11.5px; line-height: 1.7; color: #8a919b; }
+
+  .fig-status {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    flex-wrap: wrap;
+    margin-top: 9px;
+  }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; }
+
+  .legend .lg {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: #5f6772;
+    white-space: nowrap;
+  }
+
+  .legend i { font-style: normal; font-size: 11px; font-weight: 700; }
+  .legend .done i { color: #4f8a4f; }
+  .legend .partial i { color: #b88227; }
+  .legend .todo i { color: #9aa1ab; }
+
+  .counts { font-size: 11.5px; color: #99a0aa; }
+  .counts b { color: #4f8a4f; font-weight: 600; }
+  .counts b.p { color: #b88227; }
+  .counts b.t { color: #8f97a2; }
+
+  .stage-wrap {
+    position: relative;
+    width: 100%;
+    container-type: inline-size;
+    margin-top: 6px;
+  }
+
+  .connectors {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .connectors path {
+    fill: none;
+    stroke: #c5c9d0;
+    stroke-width: 1.1;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .stage-head {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5cqw;
+    background: #f3f5f0;
+    border: 1px solid #e2e7dc;
+    border-radius: 0.55cqw;
+    color: #4a5a45;
+    font-size: 1.08cqw;
+    font-weight: 600;
+    letter-spacing: 0.02cqw;
+    user-select: none;
+  }
+
+  .stage-head b {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4cqw;
+    height: 1.4cqw;
+    border-radius: 50%;
+    background: #dde7d2;
+    color: #4d5f45;
+    font-size: 0.82cqw;
+    font-weight: 700;
+  }
+
+  .card {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4cqw;
+    padding: 0 0.85cqw;
+    background: #fff;
+    border: 1px solid #e9ebef;
+    border-radius: 0.55cqw;
+    box-shadow: 0 1px 2px rgba(31, 41, 55, 0.04);
+    font-size: 0.98cqw;
+    color: #5f6873;
+    white-space: nowrap;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .card span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card i {
+    font-style: normal;
+    font-size: 0.9cqw;
+    font-weight: 700;
+    flex: 0 0 auto;
+  }
+
+  .card.done i { color: #4f8a4f; }
+  .card.partial { background: #fffdf6; border-color: #ead9b8; color: #7c6a4d; }
+  .card.partial i { color: #b88227; }
+  .card.todo { background: #fbfbfc; border-style: dashed; border-color: #d9dde3; color: #9aa1ab; }
+  .card.todo i { color: #9aa1ab; }
+
+  .fig-note {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed #ebedf0;
+    font-size: 11px;
+    line-height: 1.8;
+    color: #97a0aa;
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+
+    html, body { background: #fff; }
+    body { padding: 0; }
+
+    .figure {
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin: 0;
+      break-after: page;
+    }
+
+    .figure:last-of-type { break-after: auto; }
+
+    .doc-head { margin-bottom: 14px; }
+
+    .card { box-shadow: none; }
+
+    .stage-head, .card.partial, .card.todo {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="doc-head">
+      <h1>蜀漆云馆数字展馆系统 · 分端功能结构图</h1>
+      <p>按用户类型拆分为用户端与管理端；每类用户的页面按完成一次操作的实际先后顺序排列，箭头表示操作流向。</p>
+    </header>
+
+    <section class="figure">
+      <div class="fig-head">
+        <div class="fig-title">图4-1　用户端功能框架图</div>
+        <div class="fig-meta">使用角色：观众（微信小程序，匿名访问）　｜　顺序：按完成一次参观的实际操作排列</div>
+        <div class="fig-status">
+          <div class="legend">
+            <span class="lg done"><i>✓</i>已实现</span>
+            <span class="lg partial"><i>◐</i>部分实现</span>
+            <span class="lg todo"><i>○</i>未实现（P1 规划）</span>
+          </div>
+          <div class="counts">
+            <b>20</b> 项已实现 · <b class="t">3</b> 项规划
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-wrap" style="aspect-ratio: 1200 / 350">
+        <svg class="connectors" viewBox="0 0 1200 350" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <marker id="arrow-u" viewBox="0 0 6 6" refX="5.2" refY="3"
+              markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0.8 L5.2,3 L0,5.2" fill="none" stroke="#b9bec6" stroke-width="1" />
+            </marker>
+          </defs>
+          <path d="M 123.2 96 V 105" marker-end="url(#arrow-u)" />
+          <path d="M 123.2 146 V 155" marker-end="url(#arrow-u)" />
+          <path d="M 228.4 20 H 256.4" marker-end="url(#arrow-u)" />
+          <path d="M 361.59999999999997 96 V 105" marker-end="url(#arrow-u)" />
+          <path d="M 361.59999999999997 146 V 155" marker-end="url(#arrow-u)" />
+          <path d="M 361.59999999999997 196 V 205" marker-end="url(#arrow-u)" />
+          <path d="M 361.59999999999997 246 V 255" marker-end="url(#arrow-u)" />
+          <path d="M 361.59999999999997 296 V 305" marker-end="url(#arrow-u)" />
+          <path d="M 466.79999999999995 20 H 494.8" marker-end="url(#arrow-u)" />
+          <path d="M 600 96 V 105" marker-end="url(#arrow-u)" />
+          <path d="M 600 146 V 155" marker-end="url(#arrow-u)" />
+          <path d="M 600 196 V 205" marker-end="url(#arrow-u)" />
+          <path d="M 705.2 20 H 733.2" marker-end="url(#arrow-u)" />
+          <path d="M 838.4000000000001 96 V 105" marker-end="url(#arrow-u)" />
+          <path d="M 838.4000000000001 146 V 155" marker-end="url(#arrow-u)" />
+          <path d="M 838.4000000000001 196 V 205" marker-end="url(#arrow-u)" />
+          <path d="M 838.4000000000001 246 V 255" marker-end="url(#arrow-u)" />
+          <path d="M 943.6 20 H 971.6" marker-end="url(#arrow-u)" />
+          <path d="M 1076.8 96 V 105" marker-end="url(#arrow-u)" />
+          <path d="M 1076.8 146 V 155" marker-end="url(#arrow-u)" />
+          <path d="M 1076.8 196 V 205" marker-end="url(#arrow-u)" />
+          <path d="M 1076.8 246 V 255" marker-end="url(#arrow-u)" />
+        </svg>
+
+        <div class="stage-head" style="left:2.0000%;top:0.0000%;width:16.5333%;height:11.4286%"><b>1</b><span>进入展馆</span></div>
+        <div class="card done" style="left:2.0000%;top:17.1429%;width:16.5333%;height:9.7143%"><span>小程序首页</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:31.4286%;width:16.5333%;height:9.7143%"><span>展馆介绍</span><i>✓</i></div>
+        <div class="card todo" style="left:2.0000%;top:45.7143%;width:16.5333%;height:9.7143%"><span>语音讲解</span><i>○</i></div>
+        <div class="stage-head" style="left:21.8667%;top:0.0000%;width:16.5333%;height:11.4286%"><b>2</b><span>云展馆导览</span></div>
+        <div class="card done" style="left:21.8667%;top:17.1429%;width:16.5333%;height:9.7143%"><span>云展馆 · 章节列表</span><i>✓</i></div>
+        <div class="card done" style="left:21.8667%;top:31.4286%;width:16.5333%;height:9.7143%"><span>章节详情</span><i>✓</i></div>
+        <div class="card done" style="left:21.8667%;top:45.7143%;width:16.5333%;height:9.7143%"><span>分支节点选择</span><i>✓</i></div>
+        <div class="card done" style="left:21.8667%;top:60.0000%;width:16.5333%;height:9.7143%"><span>术语释义</span><i>✓</i></div>
+        <div class="card done" style="left:21.8667%;top:74.2857%;width:16.5333%;height:9.7143%"><span>关联内容跳转</span><i>✓</i></div>
+        <div class="card done" style="left:21.8667%;top:88.5714%;width:16.5333%;height:9.7143%"><span>阅读进度记录</span><i>✓</i></div>
+        <div class="stage-head" style="left:41.7333%;top:0.0000%;width:16.5333%;height:11.4286%"><b>3</b><span>藏品查阅</span></div>
+        <div class="card done" style="left:41.7333%;top:17.1429%;width:16.5333%;height:9.7143%"><span>藏品列表</span><i>✓</i></div>
+        <div class="card done" style="left:41.7333%;top:31.4286%;width:16.5333%;height:9.7143%"><span>分类筛选</span><i>✓</i></div>
+        <div class="card done" style="left:41.7333%;top:45.7143%;width:16.5333%;height:9.7143%"><span>藏品详情</span><i>✓</i></div>
+        <div class="card done" style="left:41.7333%;top:60.0000%;width:16.5333%;height:9.7143%"><span>收藏 / 取消收藏</span><i>✓</i></div>
+        <div class="stage-head" style="left:61.6000%;top:0.0000%;width:16.5333%;height:11.4286%"><b>4</b><span>非遗资源</span></div>
+        <div class="card done" style="left:61.6000%;top:17.1429%;width:16.5333%;height:9.7143%"><span>漆艺工艺列表</span><i>✓</i></div>
+        <div class="card done" style="left:61.6000%;top:31.4286%;width:16.5333%;height:9.7143%"><span>工艺详情 · 工序</span><i>✓</i></div>
+        <div class="card done" style="left:61.6000%;top:45.7143%;width:16.5333%;height:9.7143%"><span>传承人列表</span><i>✓</i></div>
+        <div class="card done" style="left:61.6000%;top:60.0000%;width:16.5333%;height:9.7143%"><span>传承人详情</span><i>✓</i></div>
+        <div class="card done" style="left:61.6000%;top:74.2857%;width:16.5333%;height:9.7143%"><span>纹饰资料</span><i>✓</i></div>
+        <div class="stage-head" style="left:81.4667%;top:0.0000%;width:16.5333%;height:11.4286%"><b>5</b><span>个人中心</span></div>
+        <div class="card done" style="left:81.4667%;top:17.1429%;width:16.5333%;height:9.7143%"><span>参观进度</span><i>✓</i></div>
+        <div class="card done" style="left:81.4667%;top:31.4286%;width:16.5333%;height:9.7143%"><span>我的收藏</span><i>✓</i></div>
+        <div class="card done" style="left:81.4667%;top:45.7143%;width:16.5333%;height:9.7143%"><span>关于展馆</span><i>✓</i></div>
+        <div class="card done" style="left:81.4667%;top:60.0000%;width:16.5333%;height:9.7143%"><span>浏览记录</span><i>✓</i></div>
+        <div class="card todo" style="left:81.4667%;top:74.2857%;width:16.5333%;height:9.7143%"><span>意见反馈</span><i>○</i></div>
+      </div>
+
+      <div class="fig-note">注：✓ 已实现；○ 未实现（P1 规划）。图中箭头表示操作先后顺序，同一阶段内的页面自上而下依次进入；章节内的关联跳转可直接跳转至藏品、工艺、传承人详情页。图自绘。</div>
+    </section>
+
+    <section class="figure">
+      <div class="fig-head">
+        <div class="fig-title">图4-2　管理端功能框架图</div>
+        <div class="fig-meta">使用角色：管理员（后台管理系统）　｜　顺序：按内容从登录、生产、发布到统计的操作为序（第 1 行自左向右，第 2 行接续）</div>
+        <div class="fig-status">
+          <div class="legend">
+            <span class="lg done"><i>✓</i>已实现</span>
+            <span class="lg partial"><i>◐</i>部分实现</span>
+            <span class="lg todo"><i>○</i>未实现（P1 规划）</span>
+          </div>
+          <div class="counts">
+            <b>22</b> 项已实现 · <b class="p">1</b> 项部分 · <b class="t">1</b> 项规划
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-wrap" style="aspect-ratio: 1200 / 760">
+        <svg class="connectors" viewBox="0 0 1200 760" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <marker id="arrow-a" viewBox="0 0 6 6" refX="5.2" refY="3"
+              markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0.8 L5.2,3 L0,5.2" fill="none" stroke="#b9bec6" stroke-width="1" />
+            </marker>
+          </defs>
+          <path d="M 153 96 V 105" marker-end="url(#arrow-a)" />
+          <path d="M 288 20 H 316" marker-end="url(#arrow-a)" />
+          <path d="M 451 96 V 105" marker-end="url(#arrow-a)" />
+          <path d="M 586 20 H 614" marker-end="url(#arrow-a)" />
+          <path d="M 749 96 V 105" marker-end="url(#arrow-a)" />
+          <path d="M 749 146 V 155" marker-end="url(#arrow-a)" />
+          <path d="M 749 196 V 205" marker-end="url(#arrow-a)" />
+          <path d="M 749 246 V 255" marker-end="url(#arrow-a)" />
+          <path d="M 884 20 H 912" marker-end="url(#arrow-a)" />
+          <path d="M 1047 96 V 105" marker-end="url(#arrow-a)" />
+          <path d="M 1047 146 V 155" marker-end="url(#arrow-a)" />
+          <path d="M 153 456 V 465" marker-end="url(#arrow-a)" />
+          <path d="M 153 506 V 515" marker-end="url(#arrow-a)" />
+          <path d="M 153 556 V 565" marker-end="url(#arrow-a)" />
+          <path d="M 153 606 V 615" marker-end="url(#arrow-a)" />
+          <path d="M 153 656 V 665" marker-end="url(#arrow-a)" />
+          <path d="M 153 706 V 715" marker-end="url(#arrow-a)" />
+          <path d="M 288 380 H 316" marker-end="url(#arrow-a)" />
+          <path d="M 451 456 V 465" marker-end="url(#arrow-a)" />
+          <path d="M 451 506 V 515" marker-end="url(#arrow-a)" />
+          <path d="M 586 380 H 614" marker-end="url(#arrow-a)" />
+          <path d="M 749 456 V 465" marker-end="url(#arrow-a)" />
+          <path d="M 1047 204 V 327 H 153 V 352" marker-end="url(#arrow-a)" />
+        </svg>
+
+        <div class="stage-head" style="left:2.0000%;top:0.0000%;width:21.5000%;height:5.2632%"><b>1</b><span>登录与鉴权</span></div>
+        <div class="card done" style="left:2.0000%;top:7.8947%;width:21.5000%;height:4.4737%"><span>管理员登录</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:14.4737%;width:21.5000%;height:4.4737%"><span>路由守卫 · 鉴权</span><i>✓</i></div>
+        <div class="stage-head" style="left:26.8333%;top:0.0000%;width:21.5000%;height:5.2632%"><b>2</b><span>数据总览</span></div>
+        <div class="card done" style="left:26.8333%;top:7.8947%;width:21.5000%;height:4.4737%"><span>总览数据卡片</span><i>✓</i></div>
+        <div class="card done" style="left:26.8333%;top:14.4737%;width:21.5000%;height:4.4737%"><span>章节参观统计</span><i>✓</i></div>
+        <div class="stage-head" style="left:51.6667%;top:0.0000%;width:21.5000%;height:5.2632%"><b>3</b><span>章节内容生产</span></div>
+        <div class="card done" style="left:51.6667%;top:7.8947%;width:21.5000%;height:4.4737%"><span>章节列表</span><i>✓</i></div>
+        <div class="card done" style="left:51.6667%;top:14.4737%;width:21.5000%;height:4.4737%"><span>新建 / 编辑章节</span><i>✓</i></div>
+        <div class="card done" style="left:51.6667%;top:21.0526%;width:21.5000%;height:4.4737%"><span>节点编排</span><i>✓</i></div>
+        <div class="card done" style="left:51.6667%;top:27.6316%;width:21.5000%;height:4.4737%"><span>分支流程编排</span><i>✓</i></div>
+        <div class="card done" style="left:51.6667%;top:34.2105%;width:21.5000%;height:4.4737%"><span>关联内容配置</span><i>✓</i></div>
+        <div class="stage-head" style="left:76.5000%;top:0.0000%;width:21.5000%;height:5.2632%"><b>4</b><span>发布管理</span></div>
+        <div class="card done" style="left:76.5000%;top:7.8947%;width:21.5000%;height:4.4737%"><span>提交发布</span><i>✓</i></div>
+        <div class="card done" style="left:76.5000%;top:14.4737%;width:21.5000%;height:4.4737%"><span>内容下架</span><i>✓</i></div>
+        <div class="card done" style="left:76.5000%;top:21.0526%;width:21.5000%;height:4.4737%"><span>发布记录查询</span><i>✓</i></div>
+        <div class="stage-head" style="left:2.0000%;top:47.3684%;width:21.5000%;height:5.2632%"><b>5</b><span>资源维护</span></div>
+        <div class="card done" style="left:2.0000%;top:55.2632%;width:21.5000%;height:4.4737%"><span>藏品管理</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:61.8421%;width:21.5000%;height:4.4737%"><span>藏品关联配置</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:68.4211%;width:21.5000%;height:4.4737%"><span>类别字典</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:75.0000%;width:21.5000%;height:4.4737%"><span>工艺管理</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:81.5789%;width:21.5000%;height:4.4737%"><span>工序步骤配置</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:88.1579%;width:21.5000%;height:4.4737%"><span>传承人管理</span><i>✓</i></div>
+        <div class="card done" style="left:2.0000%;top:94.7368%;width:21.5000%;height:4.4737%"><span>媒体资源库</span><i>✓</i></div>
+        <div class="stage-head" style="left:26.8333%;top:47.3684%;width:21.5000%;height:5.2632%"><b>6</b><span>文化内容</span></div>
+        <div class="card done" style="left:26.8333%;top:55.2632%;width:21.5000%;height:4.4737%"><span>术语管理</span><i>✓</i></div>
+        <div class="card done" style="left:26.8333%;top:61.8421%;width:21.5000%;height:4.4737%"><span>历史事件</span><i>✓</i></div>
+        <div class="card done" style="left:26.8333%;top:68.4211%;width:21.5000%;height:4.4737%"><span>纹饰管理</span><i>✓</i></div>
+        <div class="stage-head" style="left:51.6667%;top:47.3684%;width:21.5000%;height:5.2632%"><b>7</b><span>统计与运营</span></div>
+        <div class="card partial" style="left:51.6667%;top:55.2632%;width:21.5000%;height:4.4737%"><span>关联跳转统计</span><i>◐</i></div>
+        <div class="card todo" style="left:51.6667%;top:61.8421%;width:21.5000%;height:4.4737%"><span>收藏 / 进度管理</span><i>○</i></div>
+      </div>
+
+      <div class="fig-note">注：✓ 已实现；◐ 部分实现；○ 未实现（P1 规划）。发布、下架、关联配置均在各内容编辑页内完成，媒体资源库为全站图片/音视频统一入口；◐ 表示后端接口已实现、后台暂无展示页面。图自绘。</div>
+    </section>
+  </div>
+</body>
+</html>

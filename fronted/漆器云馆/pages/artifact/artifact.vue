@@ -63,7 +63,7 @@
 	import { ref } from 'vue';
 	import { onLoad } from '@dcloudio/uni-app';
 	import { api, fullUrl, full } from '../../utils/api.js';
-	import { anonymousId } from '../../utils/visitor.js';
+	import { anonymousId, report } from '../../utils/visitor.js';
 	import { toRichHtml } from '../../utils/term.js';
 
 	const artifact = ref(null);
@@ -87,6 +87,8 @@
 			categoryName.value = detail.categoryName || '';
 			relations.value = detail.relations || [];
 			chapterRelation.value = relations.value.find((r) => r.targetType === 'chapter') || null;
+			// 浏览记录（FR-12 P1）：进入详情即记录，重复浏览只刷新时间
+			api.recordHistory({ anonymousId: anonymousId(), targetType: 'artifact', targetId: id }).catch(() => {});
 			favorited.value = await api.isFavorite(anonymousId(), 'artifact', id);
 		} catch (e) { /* request 已提示 */ }
 	}

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>蜀漆云馆数字展馆系统 · 功能结构图（实现状态）</title>
+<style>
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #f2f3f5;
+  }
+
+  body {
+    padding: 36px 20px 44px;
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page-wrap {
+    width: min(1200px, 100%);
+    margin: 0 auto;
+  }
+
+  .head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .head h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: #2f3742;
+    letter-spacing: 0.5px;
+  }
+
+  .head p {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #8a919b;
+  }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding-bottom: 2px;
+  }
+
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #5f6772;
+    white-space: nowrap;
+  }
+
+  .legend i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .legend .done i { color: #4f8a4f; background: #e7f2e4; }
+  .legend .partial i { color: #b88227; background: #fbf1dc; }
+  .legend .todo i { color: #9aa1ab; background: #eef0f3; }
+
+  .summary-line {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: #8a919b;
+    margin: 0 0 14px;
+  }
+
+  .summary-line b {
+    font-size: 14px;
+    color: #3f4853;
+    font-weight: 600;
+    margin-right: 2px;
+  }
+
+  .summary-line .s-done b { color: #4f8a4f; }
+  .summary-line .s-partial b { color: #b88227; }
+  .summary-line .s-todo b { color: #8f97a2; }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1200 / 980;
+    container-type: inline-size;
+  }
+
+  .connectors {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .connectors path {
+    fill: none;
+    stroke: #c9ccd2;
+    stroke-width: 1.15;
+    stroke-linecap: round;
+  }
+
+  .node {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.36cqw;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #eceef1;
+    border-radius: 0.62cqw;
+    box-shadow: 0 1px 2px rgba(31, 41, 55, 0.05), 0 0 0 1px rgba(31, 41, 55, 0.01);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+    cursor: default;
+    user-select: none;
+  }
+
+  .node:hover {
+    transform: translateY(-1px);
+    border-color: #d8dde4;
+    box-shadow: 0 4px 10px rgba(31, 41, 55, 0.08);
+  }
+
+  .node.done::before,
+  .node.partial::before,
+  .node.todo::before {
+    font-family: Arial, sans-serif;
+    font-size: 0.95cqw;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .node.done::before { content: '✓'; color: #4f8a4f; }
+  .node.partial::before { content: '◐'; color: #b88227; }
+  .node.todo::before { content: '○'; color: #9aa1ab; }
+
+  .root {
+    background: linear-gradient(180deg, #e3f1d7 0%, #d8eaca 100%);
+    border-color: #cfe1bf;
+    color: #3f5734;
+    font-size: 1.68cqw;
+    font-weight: 600;
+    letter-spacing: 0.08cqw;
+    box-shadow: 0 2px 6px rgba(76, 108, 55, 0.10);
+  }
+
+  .root:hover {
+    border-color: #c3d8b0;
+    box-shadow: 0 5px 14px rgba(76, 108, 55, 0.16);
+  }
+
+  .module {
+    color: #59616d;
+    font-size: 1.17cqw;
+    font-weight: 500;
+    letter-spacing: 0.02cqw;
+  }
+
+  .leaf {
+    color: #7c838d;
+    font-size: 1.04cqw;
+    border-color: #f0f1f3;
+    box-shadow: 0 1px 2px rgba(31, 41, 55, 0.035);
+  }
+
+  .node.partial {
+    border-color: #ead9b8;
+    background: #fffdf8;
+  }
+
+  .node.todo {
+    border-style: dashed;
+    border-color: #d9dde3;
+    background: #fbfbfc;
+    color: #9aa1ab;
+  }
+
+  .node.partial.leaf { color: #7c6a4d; }
+  .node.todo.leaf { color: #9aa1ab; }
+
+  .notes {
+    margin-top: 18px;
+    padding: 14px 18px;
+    background: #ffffff;
+    border: 1px solid #e8eaee;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.9;
+    color: #6b7280;
+  }
+
+  .notes b {
+    color: #3f4853;
+    font-weight: 600;
+  }
+
+  .notes .n-partial { color: #a97820; }
+  .notes .n-todo { color: #7f8792; }
+
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+
+    html, body {
+      background: #ffffff;
+    }
+
+    body { padding: 0; }
+
+    .stage { margin: 0 auto; }
+
+    .node {
+      box-shadow: none;
+      border-color: #dfe3e8;
+    }
+
+    .root {
+      box-shadow: none;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .legend i,
+    .node.partial,
+    .node.todo {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .notes { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <div class="page-wrap">
+    <header class="head">
+      <div>
+        <h1>蜀漆云馆数字展馆系统</h1>
+        <p>功能结构图 · 实现状态（截至 2026-11-09）</p>
+      </div>
+      <div class="legend">
+        <span class="done"><i>✓</i>已实现</span>
+        <span class="partial"><i>◐</i>部分实现</span>
+        <span class="todo"><i>○</i>未实现（P1 规划）</span>
+      </div>
+    </header>
+
+    <div class="summary-line">
+      <span class="s-done"><b>35</b>项已实现</span>
+      <span class="s-partial"><b>2</b>项部分实现</span>
+      <span class="s-todo"><b>4</b>项规划中</span>
+    </div>
+
+    <div class="stage">
+      <svg class="connectors" viewBox="0 0 1200 980" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M 600 490 C 545 490, 505 150, 466 150" />
+      <path d="M 278 150 C 248 150, 218 42, 178 42" />
+      <path d="M 278 150 C 248 150, 218 78, 178 78" />
+      <path d="M 278 150 C 248 150, 218 114, 178 114" />
+      <path d="M 278 150 C 248 150, 218 150, 178 150" />
+      <path d="M 278 150 C 248 150, 218 186, 178 186" />
+      <path d="M 278 150 C 248 150, 218 222, 178 222" />
+      <path d="M 278 150 C 248 150, 218 258, 178 258" />
+      <path d="M 600 490 C 545 490, 505 380, 466 380" />
+      <path d="M 278 380 C 248 380, 218 308, 178 308" />
+      <path d="M 278 380 C 248 380, 218 344, 178 344" />
+      <path d="M 278 380 C 248 380, 218 380, 178 380" />
+      <path d="M 278 380 C 248 380, 218 416, 178 416" />
+      <path d="M 278 380 C 248 380, 218 452, 178 452" />
+      <path d="M 600 490 C 545 490, 505 610, 466 610" />
+      <path d="M 278 610 C 248 610, 218 538, 178 538" />
+      <path d="M 278 610 C 248 610, 218 574, 178 574" />
+      <path d="M 278 610 C 248 610, 218 610, 178 610" />
+      <path d="M 278 610 C 248 610, 218 646, 178 646" />
+      <path d="M 278 610 C 248 610, 218 682, 178 682" />
+      <path d="M 600 490 C 545 490, 505 840, 466 840" />
+      <path d="M 278 840 C 248 840, 218 768, 178 768" />
+      <path d="M 278 840 C 248 840, 218 804, 178 804" />
+      <path d="M 278 840 C 248 840, 218 840, 178 840" />
+      <path d="M 278 840 C 248 840, 218 876, 178 876" />
+      <path d="M 278 840 C 248 840, 218 912, 178 912" />
+      <path d="M 600 490 C 655 490, 695 180, 734 180" />
+      <path d="M 922 180 C 952 180, 982 72, 1022 72" />
+      <path d="M 922 180 C 952 180, 982 108, 1022 108" />
+      <path d="M 922 180 C 952 180, 982 144, 1022 144" />
+      <path d="M 922 180 C 952 180, 982 180, 1022 180" />
+      <path d="M 922 180 C 952 180, 982 216, 1022 216" />
+      <path d="M 922 180 C 952 180, 982 252, 1022 252" />
+      <path d="M 922 180 C 952 180, 982 288, 1022 288" />
+      <path d="M 600 490 C 655 490, 695 500, 734 500" />
+      <path d="M 922 500 C 952 500, 982 392, 1022 392" />
+      <path d="M 922 500 C 952 500, 982 428, 1022 428" />
+      <path d="M 922 500 C 952 500, 982 464, 1022 464" />
+      <path d="M 922 500 C 952 500, 982 500, 1022 500" />
+      <path d="M 922 500 C 952 500, 982 536, 1022 536" />
+      <path d="M 922 500 C 952 500, 982 572, 1022 572" />
+      <path d="M 922 500 C 952 500, 982 608, 1022 608" />
+      <path d="M 600 490 C 655 490, 695 800, 734 800" />
+      <path d="M 922 800 C 952 800, 982 728, 1022 728" />
+      <path d="M 922 800 C 952 800, 982 764, 1022 764" />
+      <path d="M 922 800 C 952 800, 982 800, 1022 800" />
+      <path d="M 922 800 C 952 800, 982 836, 1022 836" />
+      <path d="M 922 800 C 952 800, 982 872, 1022 872" />
+      </svg>
+
+      <div class="node root" style="left:40.0000%;top:46.1224%;width:20.0000%;height:7.7551%">蜀漆云馆数字展馆系统</div>
+
+      <div class="node module partial" style="left:23.1667%;top:12.7551%;width:15.6667%;height:5.1020%">云展馆模块</div>
+      <div class="node module done" style="left:23.1667%;top:36.2245%;width:15.6667%;height:5.1020%">藏品展示模块</div>
+      <div class="node module done" style="left:23.1667%;top:59.6939%;width:15.6667%;height:5.1020%">非遗资源模块</div>
+      <div class="node module partial" style="left:23.1667%;top:83.1633%;width:15.6667%;height:5.1020%">个人中心模块</div>
+      <div class="node module done" style="left:61.1667%;top:15.8163%;width:15.6667%;height:5.1020%">内容管理模块</div>
+      <div class="node module partial" style="left:61.1667%;top:48.4694%;width:15.6667%;height:5.1020%">运营支撑模块</div>
+      <div class="node module partial" style="left:61.1667%;top:79.0816%;width:15.6667%;height:5.1020%">数据统计模块</div>
+
+      <div class="node leaf done" style="left:1.5000%;top:2.8571%;width:13.3333%;height:2.8571%">章节列表</div>
+      <div class="node leaf done" style="left:1.5000%;top:6.5306%;width:13.3333%;height:2.8571%">章节详情</div>
+      <div class="node leaf done" style="left:1.5000%;top:10.2041%;width:13.3333%;height:2.8571%">分支叙事</div>
+      <div class="node leaf done" style="left:1.5000%;top:13.8776%;width:13.3333%;height:2.8571%">术语释义</div>
+      <div class="node leaf done" style="left:1.5000%;top:17.5510%;width:13.3333%;height:2.8571%">阅读进度</div>
+      <div class="node leaf done" style="left:1.5000%;top:21.2245%;width:13.3333%;height:2.8571%">关联内容跳转</div>
+      <div class="node leaf todo" style="left:1.5000%;top:24.8980%;width:13.3333%;height:2.8571%">语音讲解</div>
+      <div class="node leaf done" style="left:1.5000%;top:30.0000%;width:13.3333%;height:2.8571%">藏品列表</div>
+      <div class="node leaf done" style="left:1.5000%;top:33.6735%;width:13.3333%;height:2.8571%">分类筛选</div>
+      <div class="node leaf done" style="left:1.5000%;top:37.3469%;width:13.3333%;height:2.8571%">藏品详情</div>
+      <div class="node leaf done" style="left:1.5000%;top:41.0204%;width:13.3333%;height:2.8571%">藏品收藏</div>
+      <div class="node leaf done" style="left:1.5000%;top:44.6939%;width:13.3333%;height:2.8571%">关联推荐</div>
+      <div class="node leaf done" style="left:1.5000%;top:53.4694%;width:13.3333%;height:2.8571%">漆艺工艺</div>
+      <div class="node leaf done" style="left:1.5000%;top:57.1429%;width:13.3333%;height:2.8571%">工序步骤</div>
+      <div class="node leaf done" style="left:1.5000%;top:60.8163%;width:13.3333%;height:2.8571%">纹饰图鉴</div>
+      <div class="node leaf done" style="left:1.5000%;top:64.4898%;width:13.3333%;height:2.8571%">传承人</div>
+      <div class="node leaf done" style="left:1.5000%;top:68.1633%;width:13.3333%;height:2.8571%">时间轴节点</div>
+      <div class="node leaf done" style="left:1.5000%;top:76.9388%;width:13.3333%;height:2.8571%">参观进度</div>
+      <div class="node leaf done" style="left:1.5000%;top:80.6122%;width:13.3333%;height:2.8571%">我的收藏</div>
+      <div class="node leaf done" style="left:1.5000%;top:84.2857%;width:13.3333%;height:2.8571%">关于展馆</div>
+      <div class="node leaf done" style="left:1.5000%;top:87.9592%;width:13.3333%;height:2.8571%">浏览记录</div>
+      <div class="node leaf todo" style="left:1.5000%;top:91.6327%;width:13.3333%;height:2.8571%">意见反馈</div>
+      <div class="node leaf done" style="left:85.1667%;top:5.9184%;width:13.3333%;height:2.8571%">章节管理</div>
+      <div class="node leaf done" style="left:85.1667%;top:9.5918%;width:13.3333%;height:2.8571%">节点编排</div>
+      <div class="node leaf done" style="left:85.1667%;top:13.2653%;width:13.3333%;height:2.8571%">藏品管理</div>
+      <div class="node leaf done" style="left:85.1667%;top:16.9388%;width:13.3333%;height:2.8571%">工艺管理</div>
+      <div class="node leaf done" style="left:85.1667%;top:20.6122%;width:13.3333%;height:2.8571%">传承人管理</div>
+      <div class="node leaf done" style="left:85.1667%;top:24.2857%;width:13.3333%;height:2.8571%">纹饰管理</div>
+      <div class="node leaf done" style="left:85.1667%;top:27.9592%;width:13.3333%;height:2.8571%">术语管理</div>
+      <div class="node leaf done" style="left:85.1667%;top:38.5714%;width:13.3333%;height:2.8571%">章节发布</div>
+      <div class="node leaf done" style="left:85.1667%;top:42.2449%;width:13.3333%;height:2.8571%">内容下架</div>
+      <div class="node leaf done" style="left:85.1667%;top:45.9184%;width:13.3333%;height:2.8571%">关联配置</div>
+      <div class="node leaf done" style="left:85.1667%;top:49.5918%;width:13.3333%;height:2.8571%">媒体资源库</div>
+      <div class="node leaf done" style="left:85.1667%;top:53.2653%;width:13.3333%;height:2.8571%">类别字典</div>
+      <div class="node leaf done" style="left:85.1667%;top:56.9388%;width:13.3333%;height:2.8571%">登录与鉴权</div>
+      <div class="node leaf partial" style="left:85.1667%;top:60.6122%;width:13.3333%;height:2.8571%">音视频内容</div>
+      <div class="node leaf done" style="left:85.1667%;top:72.8571%;width:13.3333%;height:2.8571%">数据总览</div>
+      <div class="node leaf done" style="left:85.1667%;top:76.5306%;width:13.3333%;height:2.8571%">访客统计</div>
+      <div class="node leaf done" style="left:85.1667%;top:80.2041%;width:13.3333%;height:2.8571%">章节参观统计</div>
+      <div class="node leaf partial" style="left:85.1667%;top:83.8776%;width:13.3333%;height:2.8571%">关联跳转统计</div>
+      <div class="node leaf todo" style="left:85.1667%;top:87.5510%;width:13.3333%;height:2.8571%">收藏/进度管理</div>
+    </div>
+
+    <div class="notes">
+      <div><b>状态说明：</b>状态依据当前代码与实际可运行页面核对；标“○”的功能为 P1 规划，暂未实现。</div>
+      <div><span class="n-todo">○ 语音讲解</span>：首页入口灰显，尚未接入音频讲解内容。</div>
+      <div><span class="n-todo">○ 意见反馈</span>：个人中心入口灰显，尚未实现。</div>
+      <div><span class="n-partial">◐ 音视频内容</span>：媒体库已支持音视频上传，用户端尚未接入播放。</div>
+      <div><span class="n-partial">◐ 关联跳转统计</span>：后端统计接口已实现，管理后台暂无展示页面。</div>
+      <div><span class="n-todo">○ 收藏/进度管理</span>：用户端收藏与进度功能已完成，管理端暂无独立管理页面。</div>
+      <div><b>口径说明：</b>“时间轴节点”在章节详情内展示，无独立页面；“纹饰图鉴”为独立主题页。</div>
+    </div>
+  </div>
+</body>
+</html>

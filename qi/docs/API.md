@@ -262,6 +262,9 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
 | DELETE | /app/visitor/favorites | query：anonymousId、targetType、targetId | - |
 | GET | /app/visitor/favorites | query：anonymousId | List：`{ targetId, name, mainImageUrl, favoriteTime }`（已下架/删除藏品自动隐藏） |
 | GET | /app/visitor/favorites/exists | query：anonymousId、targetType、targetId | Boolean（详情页收藏按钮状态） |
+| POST | /app/visitor/history | body `{ anonymousId, targetType, targetId }` | -（P1 浏览记录；targetType=chapter/artifact/craft/inheritor；同一对象重复浏览只刷新时间） |
+| GET | /app/visitor/history | query：anonymousId、limit（可选，默认 50，最大 100） | List：`{ targetType, targetId, title, subtitle, imageUrl, visitTime }`（按最近浏览倒序；失效/下架内容自动隐藏） |
+| DELETE | /app/visitor/history | query：anonymousId | -（清空个人浏览记录，不影响行为统计） |
 | POST | /app/visitor/behaviors | BehaviorReportRequest | Integer（实际记录条数） |
 
 行为上报请求体：

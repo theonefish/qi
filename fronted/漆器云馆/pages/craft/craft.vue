@@ -48,6 +48,7 @@
 	import { ref } from 'vue';
 	import { onLoad } from '@dcloudio/uni-app';
 	import { api, fullUrl, full } from '../../utils/api.js';
+	import { anonymousId } from '../../utils/visitor.js';
 	import { toRichHtml } from '../../utils/term.js';
 
 	const craft = ref(null);
@@ -60,6 +61,8 @@
 			craft.value = detail.craft;
 			steps.value = detail.steps || [];
 			relatedArtifacts.value = detail.relatedArtifacts || [];
+			// 浏览记录（FR-12 P1）：进入详情即记录，重复浏览只刷新时间
+			api.recordHistory({ anonymousId: anonymousId(), targetType: 'craft', targetId: id }).catch(() => {});
 		} catch (e) { /* request 已提示 */ }
 	}
 

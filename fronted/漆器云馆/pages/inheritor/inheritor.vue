@@ -51,6 +51,7 @@
 	import { ref } from 'vue';
 	import { onLoad } from '@dcloudio/uni-app';
 	import { api, fullUrl, full } from '../../utils/api.js';
+	import { anonymousId } from '../../utils/visitor.js';
 	import { toRichHtml } from '../../utils/term.js';
 
 	const person = ref(null);
@@ -63,6 +64,8 @@
 			person.value = detail.inheritor;
 			works.value = detail.works || [];
 			crafts.value = detail.crafts || [];
+			// 浏览记录（FR-12 P1）：进入详情即记录，重复浏览只刷新时间
+			api.recordHistory({ anonymousId: anonymousId(), targetType: 'inheritor', targetId: id }).catch(() => {});
 		} catch (e) { /* request 已提示 */ }
 	}
 

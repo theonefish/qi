@@ -373,3 +373,17 @@ CREATE TABLE publish_record (
     KEY idx_object (object_type, object_id),
     KEY idx_time (publish_time)
 ) ENGINE = InnoDB COMMENT = '发布记录';
+
+-- 23. 浏览记录（FR-12 P1；按匿名标识记录最近浏览的章节/藏品/工艺/传承人）
+CREATE TABLE browse_history (
+    id            BIGINT      NOT NULL AUTO_INCREMENT,
+    anonymous_id  VARCHAR(64) NOT NULL COMMENT '匿名标识',
+    target_type   VARCHAR(20) NOT NULL COMMENT 'chapter / artifact / craft / inheritor',
+    target_id     BIGINT      NOT NULL,
+    visit_time    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近浏览时间（重复浏览只更新）',
+    create_time   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_anon_target (anonymous_id, target_type, target_id),
+    KEY idx_anon_time (anonymous_id, visit_time)
+) ENGINE = InnoDB COMMENT = '匿名用户浏览记录';

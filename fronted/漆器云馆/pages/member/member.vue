@@ -17,11 +17,10 @@
 			<view class="menu-item" @click="go('/pages/progress/progress')">
 				<text class="mi-name">参观进度</text><text class="mi-arrow">›</text>
 			</view>
-			<!-- P1 功能按“控制显示”原则灰显（FR-12） -->
-			<view class="menu-item disabled" @click="comingSoon('浏览记录')">
-				<view class="mi-left"><text class="mi-name">浏览记录</text><text class="mi-tag">即将上线</text></view>
-				<text class="mi-arrow">›</text>
+			<view class="menu-item" @click="go('/pages/history/history')">
+				<text class="mi-name">浏览记录</text><text class="mi-arrow">›</text>
 			</view>
+			<!-- P1 功能按“控制显示”原则灰显（FR-12） -->
 			<view class="menu-item disabled" @click="comingSoon('意见反馈')">
 				<view class="mi-left"><text class="mi-name">意见反馈</text><text class="mi-tag">即将上线</text></view>
 				<text class="mi-arrow">›</text>
@@ -37,7 +36,7 @@
 			<text class="about-text">本馆展示的藏品档案、工艺说明、历史事件与人物口述，均在后台登记资料来源与审核记录后发布；图片等媒体素材的使用依据与授权信息随内容一并管理，未经核实或授权的资料不对外展示。如对内容或素材使用有疑问，可通过后续上线的意见反馈渠道与我们联系。</text>
 
 			<text class="about-title" style="margin-top: 26rpx;">数据与隐私说明</text>
-			<text class="about-text">为支持断点续读、收藏与参观行为统计，系统在本设备生成了一个匿名标识并在服务端保存您的阅读位置与收藏（不涉及手机号等个人信息）。清除小程序数据后，原进度与收藏将无法找回。</text>
+			<text class="about-text">为支持断点续读、收藏、浏览记录与参观行为统计，系统在本设备生成了一个匿名标识并在服务端保存您的阅读位置、浏览记录与收藏（不涉及手机号等个人信息）。清除小程序数据后，原进度、浏览记录与收藏将无法找回。</text>
 		</view>
 
 		<text class="version">蜀漆云馆 v1.0.0</text>

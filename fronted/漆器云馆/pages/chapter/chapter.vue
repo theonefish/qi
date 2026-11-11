@@ -186,10 +186,13 @@
 
 <script setup>
 	import { ref, computed, nextTick } from 'vue';
-	import { onLoad, onPageScroll } from '@dcloudio/uni-app';
+	import { onLoad, onShow, onPageScroll } from '@dcloudio/uni-app';
 	import { api, fullUrl, full } from '../../utils/api.js';
 	import { anonymousId, report } from '../../utils/visitor.js';
 	import { collectTermIds, prepareRichHtml, splitRichByTerms, toRichHtml } from '../../utils/term.js';
+
+	// back_main（7.11）：从关联详情页返回章节主线时上报（§3 补实现）
+	let backFromRelation = false;
 
 	const chapterId = ref(null);
 	const chapter = ref(null);
@@ -313,6 +316,10 @@
 			}
 			const detail = await api.chapter(chapterId.value);
 			chapter.value = detail.chapter;
+			// 浏览记录（FR-12 P1）：进入章节即记录，重复浏览只刷新时间
+			api.recordHistory({
+				anonymousId: anonymousId(), targetType: 'chapter', targetId: chapterId.value
+			}).catch(() => {});
 
 			// 先取术语释义，再构建节点（术语标记显示名优先用术语名称）
 			const rawNodes = detail.nodes || [];
@@ -443,6 +450,7 @@
 
 	function openRelation(r) {
 		report('click_relation', { chapterId: Number(chapterId.value), targetType: r.targetType, targetId: r.targetId });
+		backFromRelation = true; // 返回章节时触发 back_main 上报（7.11）
 		const map = {
 			artifact: '/pages/artifact/artifact?id=',
 			craft: '/pages/craft/craft?id=',
@@ -452,6 +460,14 @@
 			uni.navigateTo({ url: map[r.targetType] + r.targetId });
 		}
 	}
+
+	// 从关联详情返回章节主线 → back_main（chapterId = 来源章节）
+	onShow(() => {
+		if (backFromRelation) {
+			backFromRelation = false;
+			report('back_main', { chapterId: Number(chapterId.value) });
+		}
+	});
 
 	// ---------------- 分支叙事交互（§10.3） ----------------
 

@@ -3,17 +3,24 @@ package com.example.qi.module.visitor.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.qi.common.BusinessException;
 import com.example.qi.common.ContentStatus;
+import com.example.qi.common.HtmlTextUtils;
 import com.example.qi.module.artifact.entity.Artifact;
 import com.example.qi.module.artifact.mapper.ArtifactMapper;
 import com.example.qi.module.chapter.entity.Chapter;
 import com.example.qi.module.chapter.entity.ChapterNode;
 import com.example.qi.module.chapter.mapper.ChapterMapper;
 import com.example.qi.module.chapter.mapper.ChapterNodeMapper;
+import com.example.qi.module.craft.entity.Craft;
+import com.example.qi.module.craft.mapper.CraftMapper;
+import com.example.qi.module.inheritor.entity.Inheritor;
+import com.example.qi.module.inheritor.mapper.InheritorMapper;
 import com.example.qi.module.visitor.dto.BehaviorReportRequest;
 import com.example.qi.module.visitor.entity.BehaviorEvent;
+import com.example.qi.module.visitor.entity.BrowseHistory;
 import com.example.qi.module.visitor.entity.UserFavorite;
 import com.example.qi.module.visitor.entity.UserProgress;
 import com.example.qi.module.visitor.mapper.BehaviorEventMapper;
+import com.example.qi.module.visitor.mapper.BrowseHistoryMapper;
 import com.example.qi.module.visitor.mapper.UserFavoriteMapper;
 import com.example.qi.module.visitor.mapper.UserProgressMapper;
 import lombok.RequiredArgsConstructor;
@@ -40,17 +47,30 @@ import java.util.stream.Collectors;
 public class VisitorService {
 
     private static final String TYPE_ARTIFACT = "artifact";
+    private static final String TYPE_CHAPTER = "chapter";
+    private static final String TYPE_CRAFT = "craft";
+    private static final String TYPE_INHERITOR = "inheritor";
+    /** 浏览记录支持的内容类型（P1；纹饰无独立详情页，暂不记录） */
+    private static final Set<String> HISTORY_TYPES = Set.of(TYPE_CHAPTER, TYPE_ARTIFACT, TYPE_CRAFT, TYPE_INHERITOR);
     /** 允许前端上报的事件类型；complete_chapter 由完成本章接口内部记录（7.11 口径） */
     private static final Set<String> REPORTABLE_EVENTS = Set.of("enter_chapter", "view_node", "click_relation", "back_main", "choose_branch");
 
     private final UserFavoriteMapper favoriteMapper;
     private final UserProgressMapper progressMapper;
     private final BehaviorEventMapper behaviorEventMapper;
+    private final BrowseHistoryMapper browseHistoryMapper;
     private final ChapterMapper chapterMapper;
     private final ChapterNodeMapper nodeMapper;
     private final ArtifactMapper artifactMapper;
+    private final CraftMapper craftMapper;
+    private final InheritorMapper inheritorMapper;
 
     public record FavoriteItem(Long targetId, String name, String mainImageUrl, LocalDateTime favoriteTime) {
+    }
+
+    /** 浏览记录条目（P1）：内容失效/下架时由查询侧过滤，不产生死链 */
+    public record HistoryItem(String targetType, Long targetId, String title, String subtitle,
+                              String imageUrl, LocalDateTime visitTime) {
     }
 
     public record CompleteResult(boolean firstTime, long completedMain, long totalMain, int progressPercent) {
@@ -123,6 +143,133 @@ public class VisitorService {
                     artifact.getMainImageUrl(), favorite.getCreateTime()));
         }
         return items;
+    }
+
+    // ---------------------------- 浏览记录（FR-12 P1） ----------------------------
+
+    /** 记录一次内容浏览：同一对象重复浏览只刷新时间，不新增行 */
+    public void recordHistory(String anonymousId, String targetType, Long targetId) {
+        checkAnonymous(anonymousId);
+        requireHistoryTarget(targetType, targetId);
+        LocalDateTime now = LocalDateTime.now();
+        int updated = browseHistoryMapper.update(null, Wrappers.<BrowseHistory>lambdaUpdate()
+                .eq(BrowseHistory::getAnonymousId, anonymousId)
+                .eq(BrowseHistory::getTargetType, targetType)
+                .eq(BrowseHistory::getTargetId, targetId)
+                .set(BrowseHistory::getVisitTime, now));
+        if (updated > 0) {
+            return;
+        }
+        BrowseHistory history = new BrowseHistory();
+        history.setAnonymousId(anonymousId);
+        history.setTargetType(targetType);
+        history.setTargetId(targetId);
+        history.setVisitTime(now);
+        browseHistoryMapper.insert(history);
+    }
+
+    /** 浏览记录列表：按最近浏览时间倒序；失效或下架内容自动隐藏（同收藏 5.7 口径） */
+    public List<HistoryItem> listHistory(String anonymousId, Integer limit) {
+        checkAnonymous(anonymousId);
+        int size = limit == null ? 50 : Math.min(Math.max(limit, 1), 100);
+        List<BrowseHistory> rows = browseHistoryMapper.selectList(Wrappers.<BrowseHistory>lambdaQuery()
+                .eq(BrowseHistory::getAnonymousId, anonymousId)
+                .orderByDesc(BrowseHistory::getVisitTime)
+                .last("LIMIT " + size));
+        List<HistoryItem> items = new ArrayList<>();
+        for (BrowseHistory row : rows) {
+            HistoryItem item = resolveHistory(row);
+            if (item != null) {
+                items.add(item);
+            }
+        }
+        return items;
+    }
+
+    /** 清空当前匿名标识的浏览记录（只删个人浏览记录，不影响行为统计） */
+    public void clearHistory(String anonymousId) {
+        checkAnonymous(anonymousId);
+        browseHistoryMapper.delete(Wrappers.<BrowseHistory>lambdaQuery()
+                .eq(BrowseHistory::getAnonymousId, anonymousId));
+    }
+
+    private HistoryItem resolveHistory(BrowseHistory row) {
+        Long targetId = row.getTargetId();
+        if (TYPE_CHAPTER.equals(row.getTargetType())) {
+            Chapter chapter = chapterMapper.selectById(targetId);
+            if (chapter == null || chapter.getStatus() != ContentStatus.PUBLISHED.getCode()) {
+                return null;
+            }
+            StringBuilder subtitle = new StringBuilder(chapter.getChapterType() != null
+                    && chapter.getChapterType() == 0 ? "序章" : "正章");
+            if (StringUtils.hasText(chapter.getSubtitle())) {
+                subtitle.append(" · ").append(chapter.getSubtitle());
+            }
+            return new HistoryItem(TYPE_CHAPTER, targetId, chapter.getTitle(),
+                    subtitle.toString(), chapter.getCoverUrl(), row.getVisitTime());
+        }
+        if (TYPE_ARTIFACT.equals(row.getTargetType())) {
+            Artifact artifact = artifactMapper.selectById(targetId);
+            if (artifact == null || artifact.getStatus() != ContentStatus.PUBLISHED.getCode()) {
+                return null;
+            }
+            String subtitle = java.util.stream.Stream.of(artifact.getEra(), artifact.getMaterial())
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.joining(" · "));
+            return new HistoryItem(TYPE_ARTIFACT, targetId, artifact.getName(),
+                    subtitle, artifact.getMainImageUrl(), row.getVisitTime());
+        }
+        if (TYPE_CRAFT.equals(row.getTargetType())) {
+            Craft craft = craftMapper.selectById(targetId);
+            if (craft == null || craft.getStatus() != ContentStatus.PUBLISHED.getCode()) {
+                return null;
+            }
+            return new HistoryItem(TYPE_CRAFT, targetId, craft.getName(),
+                    brief(craft.getOverview()), null, row.getVisitTime());
+        }
+        if (TYPE_INHERITOR.equals(row.getTargetType())) {
+            Inheritor inheritor = inheritorMapper.selectById(targetId);
+            if (inheritor == null || inheritor.getStatus() != ContentStatus.PUBLISHED.getCode()) {
+                return null;
+            }
+            return new HistoryItem(TYPE_INHERITOR, targetId, inheritor.getName(),
+                    brief(inheritor.getIntro()), inheritor.getPhotoUrl(), row.getVisitTime());
+        }
+        return null;
+    }
+
+    /** 富文本摘要：剔标签后截断，避免列表撑破布局 */
+    private String brief(String html) {
+        String text = HtmlTextUtils.plainText(html);
+        return text.length() <= 40 ? text : text.substring(0, 40) + "…";
+    }
+
+    private void requireHistoryTarget(String targetType, Long targetId) {
+        if (!HISTORY_TYPES.contains(targetType)) {
+            throw new BusinessException("不支持的浏览对象类型");
+        }
+        boolean published = switch (targetType) {
+            case TYPE_CHAPTER -> {
+                Chapter chapter = chapterMapper.selectById(targetId);
+                yield chapter != null && chapter.getStatus() == ContentStatus.PUBLISHED.getCode();
+            }
+            case TYPE_ARTIFACT -> {
+                Artifact artifact = artifactMapper.selectById(targetId);
+                yield artifact != null && artifact.getStatus() == ContentStatus.PUBLISHED.getCode();
+            }
+            case TYPE_CRAFT -> {
+                Craft craft = craftMapper.selectById(targetId);
+                yield craft != null && craft.getStatus() == ContentStatus.PUBLISHED.getCode();
+            }
+            case TYPE_INHERITOR -> {
+                Inheritor inheritor = inheritorMapper.selectById(targetId);
+                yield inheritor != null && inheritor.getStatus() == ContentStatus.PUBLISHED.getCode();
+            }
+            default -> false;
+        };
+        if (!published) {
+            throw new BusinessException("浏览对象不存在或已下架");
+        }
     }
 
     // ---------------------------- 进度与断点续读 ----------------------------

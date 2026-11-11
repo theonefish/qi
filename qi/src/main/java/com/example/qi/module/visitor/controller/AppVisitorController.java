@@ -2,6 +2,7 @@ package com.example.qi.module.visitor.controller;
 
 import com.example.qi.common.Result;
 import com.example.qi.module.visitor.dto.BehaviorReportRequest;
+import com.example.qi.module.visitor.dto.BrowseHistoryRequest;
 import com.example.qi.module.visitor.dto.CompleteChapterRequest;
 import com.example.qi.module.visitor.dto.FavoriteRequest;
 import com.example.qi.module.visitor.dto.ReadPositionRequest;
@@ -56,6 +57,29 @@ public class AppVisitorController {
                                       @RequestParam String targetType,
                                       @RequestParam Long targetId) {
         return Result.ok(visitorService.isFavorite(anonymousId, targetType, targetId));
+    }
+
+    // ---------------------------- 浏览记录（FR-12 P1） ----------------------------
+
+    /** 进入章节 / 藏品 / 工艺 / 传承人详情页时记录；同一对象重复浏览只刷新时间 */
+    @PostMapping("/history")
+    public Result<Void> recordHistory(@Valid @RequestBody BrowseHistoryRequest request) {
+        visitorService.recordHistory(request.getAnonymousId(), request.getTargetType(), request.getTargetId());
+        return Result.ok();
+    }
+
+    /** 浏览记录列表（默认 50 条，最多 100 条；失效/下架内容自动隐藏） */
+    @GetMapping("/history")
+    public Result<List<VisitorService.HistoryItem>> history(@RequestParam String anonymousId,
+                                                            @RequestParam(required = false) Integer limit) {
+        return Result.ok(visitorService.listHistory(anonymousId, limit));
+    }
+
+    /** 清空当前匿名标识的浏览记录 */
+    @DeleteMapping("/history")
+    public Result<Void> clearHistory(@RequestParam String anonymousId) {
+        visitorService.clearHistory(anonymousId);
+        return Result.ok();
     }
 
     // ---------------------------- 进度与断点续读（FR-05） ----------------------------
