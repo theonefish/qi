@@ -576,20 +576,32 @@ def node_img(w, h, kind):
         d.line([(w * 0.66, h * 0.56), (w * 0.70, h * 0.54)], fill=CREAM + (200,), width=S * 3)
         label = "制胎"
     elif kind == "deco":
-        # 髹涂描金：笔触与金屑
-        for k, (x0, y0, x1, y1) in enumerate([
-            (w * 0.18, h * 0.66, w * 0.52, h * 0.34),
-            (w * 0.34, h * 0.74, w * 0.72, h * 0.40),
-            (w * 0.24, h * 0.50, w * 0.62, h * 0.24),
-        ]):
-            brush_stroke(d, x0, y0, x1, y1, S * (10 - k * 2), GOLD_BRIGHT if k == 1 else GOLD)
+        # 髹涂描金：一道金漆笔触 + 漆刷 + 金屑
+        stroke = []
+        for i in range(48):
+            t = i / 47
+            stroke.append((w * (0.14 + 0.48 * t),
+                           h * (0.68 - 0.16 * math.sin(t * math.pi * 0.85) - 0.03 * t)))
+        d.line(stroke, fill=GOLD + (200,), width=S * 13, joint="curve")
+        d.line(stroke, fill=GOLD_BRIGHT, width=S * 7, joint="curve")
+        # 漆刷：刷杆 + 金属箍 + 刷毛
+        hx0, hy0 = w * 0.90, h * 0.12
+        hx1, hy1 = w * 0.615, h * 0.44
+        d.line([(hx0, hy0), (hx1, hy1)], fill=GOLD, width=S * 7)
+        ang = math.atan2(hy1 - hy0, hx1 - hx0)
+        nx, ny = -math.sin(ang), math.cos(ang)
+        fx, fy = hx1 - math.cos(ang) * S * 10, hy1 - math.sin(ang) * S * 10
+        d.polygon([(fx + nx * S * 16, fy + ny * S * 16), (fx - nx * S * 16, fy - ny * S * 16),
+                   (hx1 - nx * S * 16, hy1 - ny * S * 16), (hx1 + nx * S * 16, hy1 + ny * S * 16)],
+                  fill=CREAM + (60,), outline=GOLD, width=S * 2)
+        d.polygon([(hx1 + nx * S * 15, hy1 + ny * S * 15), (hx1 - nx * S * 15, hy1 - ny * S * 15),
+                   (hx1 + math.cos(ang) * w * 0.075, hy1 + math.sin(ang) * w * 0.075 + S * 12)],
+                  fill=(32, 20, 16, 235), outline=GOLD, width=S * 2)
         rng = random.Random(5)
-        for _ in range(60):
-            px, py = rng.uniform(w * 0.15, w * 0.8), rng.uniform(h * 0.2, h * 0.8)
+        for _ in range(50):
+            px, py = rng.uniform(w * 0.12, w * 0.72), rng.uniform(h * 0.30, h * 0.82)
             r = rng.uniform(1, 3) * S
-            d.ellipse([px - r, py - r, px + r, py + r], fill=CREAM + (120,))
-        d.polygon([(w * 0.76, h * 0.66), (w * 0.80, h * 0.30), (w * 0.83, h * 0.66)], fill=(30, 20, 16, 220))
-        d.line([(w * 0.795, h * 0.30), (w * 0.78, h * 0.20)], fill=GOLD, width=S * 3)
+            d.ellipse([px - r, py - r, px + r, py + r], fill=CREAM + (110,))
         label = "髹涂描金"
     elif kind == "ending":
         cx, cy = w * 0.5, h * 0.55
