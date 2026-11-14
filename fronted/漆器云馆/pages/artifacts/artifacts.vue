@@ -89,10 +89,43 @@
 		uni.navigateTo({ url: '/pages/artifact/artifact?id=' + id });
 	}
 
+	/** 切回 tab 时静默刷新已加载的页，避免直接 load(true) 把列表重置到第一页 */
+	async function refresh() {
+		if (loading.value || !list.value.length) return;
+		const categoryId = activeCategory.value;
+		const pages = Math.max(1, pageNum.value - 1);
+		const keep = list.value.length;
+		let stale = false;
+		loading.value = true;
+		try {
+			const next = [];
+			let total = 0;
+			for (let p = 1; p <= pages; p++) {
+				const page = await api.artifacts({ pageNum: p, pageSize, categoryId });
+				total = page.total || 0;
+				next.push(...(page.list || []));
+				if (next.length >= total) break;
+			}
+			if (activeCategory.value !== categoryId) {
+				stale = true;
+				return;
+			}
+			list.value = next.slice(0, Math.min(keep, total));
+			finished.value = list.value.length >= total;
+		} catch (e) {
+			// 刷新失败时保留原列表
+		} finally {
+			loading.value = false;
+			if (stale) load(true);
+		}
+	}
+
 	onShow(() => {
 		if (!list.value.length) {
 			loadCategories();
 			load(true);
+		} else {
+			refresh();
 		}
 	});
 	onReachBottom(() => { load(false); });
