@@ -324,6 +324,15 @@ Chapter 字段：`id, title, subtitle, coverUrl, summary, chapterType, sortOrder
 | POST | /admin/motifs/{id}/publish | `{ "modifySummary": "..." }` | 发布（名称/文化解释/来源，5.2） |
 | POST | /admin/motifs/{id}/off-shelf | - | 下架（P0 在章节/藏品中引用展示，独立主题页 P1） |
 
+### 11.3 内容关联查询（跨模块，/admin/relations）
+
+| 方法 | 路径 | query | 响应 data |
+| --- | --- | --- | --- |
+| GET | /admin/relations | sourceType、sourceId | List\<ContentRelation\>（某内容建立的关联，正向） |
+| GET | /admin/relations/targets | targetType、targetId | List\<ContentRelation\>（某内容被哪些内容引用，反向） |
+
+> 关联的建立走各内容模块的 PUT relations 接口（如 `PUT /admin/chapters/{id}/relations`）；本组接口供后台回显与反向引用查看（ADM-09）。
+
 ## 12. 联调注意事项
 
 1. 默认管理员 `admin / admin123`（首次启动自动创建，见启动日志）。
