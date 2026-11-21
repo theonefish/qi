@@ -185,25 +185,32 @@
 
 ## 演示图片素材
 
-演示数据中的章节封面、藏品主图、传承人照片、纹饰图与章节内文配图，均已替换为与展馆视觉（朱漆 / 黑漆 / 描金）一致的主题插画，不依赖外网图床。
+演示数据中的章节封面、藏品主图、传承人照片、纹饰图与章节内文配图，均已替换为与展馆视觉（朱漆 / 黑漆 / 描金）一致的主题插画或 AI 概念图，不依赖外网图床。
 
-- 存放位置：`qi/src/main/resources/static/seed/`，启动后通过 `http://localhost:8080/seed/<name>.png` 访问。
-- 生成脚本：`qi/seed-assets/generate_seed_images.py`（Python 3 + Pillow + NumPy），重新生成：
+- 存放位置：`qi/src/main/resources/static/seed/`，启动后通过 `http://localhost:8080/seed/<name>.png|.jpg` 访问。
+- 生成脚本：`qi/seed-assets/generate_seed_images.py`（Python 3 + Pillow + NumPy），用于生成旧版 PNG 插画：
 
   ```bash
   python qi/seed-assets/generate_seed_images.py
   ```
 
-- 旧演示库升级：执行 `qi/sql/upgrade-20261113-seed-images.sql`。
+- 2026-11-19 新增的 3:2 章节封面与 4:3 藏品主图为 AI 概念图，不经过上述脚本，已直接压缩后放入 `static/seed/`。
+- 旧演示库升级：
+  - 旧版 PNG 插画：`qi/sql/upgrade-20261113-seed-images.sql`
+  - 新版设计资源：`qi/sql/upgrade-20261119-design-assets.sql`
 - 实体表存相对地址（前端 `fullUrl()` 拼接 `BASE_URL`）；章节富文本内联图为满足 `rich-text` 渲染，写入的是绝对地址，换域名部署时需同步替换。
 
 | 文件组 | 用途 | 尺寸 |
 | --- | --- | --- |
-| `chapter-main`、`chapter-branch`、`chapter-art` | 章节封面 | 1500×840 |
-| `art-box`、`art-dish`、`art-screen` | 藏品主图 | 1200×900 |
+| `chapter-main-3x2`、`chapter-branch-3x2`、`chapter-artifacts-3x2` | 新版章节封面（3:2，JPG） | 1500×1000 |
+| `artifact-diaotian-box`、`artifact-tin-bowl`、`artifact-eggshell-screen` | 新版藏品主图（4:3，JPG） | 1600×1200 |
+| `chapter-main`、`chapter-branch`、`chapter-art` | 旧版章节封面（16:9，PNG，保留兼容） | 1500×840 |
+| `art-box`、`art-dish`、`art-screen` | 旧版藏品主图（PNG，保留兼容） | 1200×900 |
 | `inheritor-1`、`inheritor-2` | 传承人照片 | 800×800 |
 | `motif-cloud`、`motif-grass`、`motif-bird` | 纹饰图片 | 900×720 |
 | `node-tree`、`node-trip`、`node-deco`、`node-ending`、`node-view`、`node-life`、`node-art` | 章节内文配图 | 1200×700 |
+
+首页 hero 使用小程序内置资源 `fronted/漆器云馆/static/hero/home.jpg`（1500×1000，约 181KB），不走 `seed` 目录，也不依赖后端接口。
 
 ## 快速开始
 
@@ -223,7 +230,7 @@ Get-Content qi/sql/init.sql -Raw -Encoding UTF8 | mysql -u root -p
 
 已有旧库且需要「浏览记录」功能时，改执行 `qi/sql/upgrade-20261110-browse-history.sql`；全新环境无需执行升级脚本。
 
-如果旧库的演示数据还在使用 `picsum.photos` 随机图，可执行 `qi/sql/upgrade-20261113-seed-images.sql` 替换为内置主题插画。
+如果旧库的演示数据还在使用 `picsum.photos` 随机图，先执行 `qi/sql/upgrade-20261113-seed-images.sql` 替换为内置主题插画；再执行 `qi/sql/upgrade-20261119-design-assets.sql` 切换为新版章节封面与藏品主图。
 
 ### 2. 配置并启动后端
 

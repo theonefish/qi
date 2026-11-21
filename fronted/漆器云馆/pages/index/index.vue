@@ -1,11 +1,14 @@
 <template>
 	<view class="page">
-		<!-- 品牌主视觉（参考原型视觉语言：纸质底 + 漆红主色） -->
+		<!-- 品牌主视觉（内置 hero 图 + 深色遮罩，保证标题可读） -->
 		<view class="hero">
-			<text class="hero-eyebrow">SHU QI YUN GUAN · DIGITAL EXHIBITION</text>
-			<text class="hero-title">蜀 漆 云 馆</text>
-			<text class="hero-sub">从历史、工艺、器物与传承人四个角度，认识成都漆艺</text>
-			<view class="hero-deco"></view>
+			<image class="hero-bg" src="/static/hero/home.jpg" mode="aspectFill" />
+			<view class="hero-mask"></view>
+			<view class="hero-content">
+				<text class="hero-eyebrow">SHU QI YUN GUAN · DIGITAL EXHIBITION</text>
+				<text class="hero-title">蜀 漆 云 馆</text>
+				<text class="hero-sub">从历史、工艺、器物与传承人四个角度，认识成都漆艺</text>
+			</view>
 		</view>
 
 		<!-- 参观入口（FR-01） -->
@@ -26,31 +29,31 @@
 			<view class="pc-bar"><view class="pc-fill" :style="{ width: progressPercent + '%' }"></view></view>
 		</view>
 
-		<!-- 快捷入口（工艺/传承人为非底部导航页面，首页快捷入口是主要到达路径） -->
+		<!-- 快捷入口（图标为 static/icons/ 的线稿图，语义映射见文件名；工艺/传承人为非底部导航页面，首页快捷入口是主要到达路径） -->
 		<view class="entry-grid">
 			<view class="entry" @click="go('/pages/exhibition/exhibition', true)">
-				<text class="entry-icon">馆</text><text class="entry-name">云展馆</text>
+				<image class="entry-icon" src="/static/icons/entry-guan.png" mode="aspectFit" /><text class="entry-name">云展馆</text>
 			</view>
 			<view class="entry" @click="go('/pages/artifacts/artifacts', true)">
-				<text class="entry-icon">藏</text><text class="entry-name">藏品</text>
+				<image class="entry-icon" src="/static/icons/entry-cang.png" mode="aspectFit" /><text class="entry-name">藏品</text>
 			</view>
 			<view class="entry" @click="go('/pages/crafts/crafts')">
-				<text class="entry-icon">工</text><text class="entry-name">漆艺工艺</text>
+				<image class="entry-icon" src="/static/icons/entry-gong.png" mode="aspectFit" /><text class="entry-name">漆艺工艺</text>
 			</view>
 			<view class="entry" @click="go('/pages/inheritors/inheritors')">
-				<text class="entry-icon">匠</text><text class="entry-name">传承人</text>
+				<image class="entry-icon" src="/static/icons/entry-jiang.png" mode="aspectFit" /><text class="entry-name">传承人</text>
 			</view>
 			<view class="entry" @click="go('/pages/favorites/favorites')">
-				<text class="entry-icon">收</text><text class="entry-name">我的收藏</text>
+				<image class="entry-icon" src="/static/icons/entry-shou.png" mode="aspectFit" /><text class="entry-name">我的收藏</text>
 			</view>
 			<view class="entry" @click="go('/pages/progress/progress')">
-				<text class="entry-icon">程</text><text class="entry-name">参观进度</text>
+				<image class="entry-icon" src="/static/icons/entry-cheng.png" mode="aspectFit" /><text class="entry-name">参观进度</text>
 			</view>
 			<view class="entry" @click="go('/pages/motifs/motifs')">
-				<text class="entry-icon">饰</text><text class="entry-name">纹饰主题</text>
+				<image class="entry-icon" src="/static/icons/entry-shi.png" mode="aspectFit" /><text class="entry-name">纹饰主题</text>
 			</view>
 			<view class="entry disabled" @click="comingSoon">
-				<text class="entry-icon">声</text><text class="entry-name">语音讲解</text>
+				<image class="entry-icon" src="/static/icons/entry-sheng.png" mode="aspectFit" /><text class="entry-name">语音讲解</text>
 			</view>
 		</view>
 
@@ -110,16 +113,24 @@
 	.page { padding-bottom: 40rpx; }
 	.hero {
 		margin: 20rpx 32rpx 0; border-radius: 26rpx; overflow: hidden; position: relative;
-		padding: 90rpx 50rpx; color: #fff8ea;
+		min-height: 360rpx; padding: 90rpx 50rpx; color: #fff8ea;
 		background: radial-gradient(ellipse at 75% 28%, #a75c42 0%, #7e352d 39%, #351b1b 100%);
 	}
-	.hero-eyebrow { font-size: 18rpx; letter-spacing: 5rpx; color: #e8c99a; display: block; }
-	.hero-title { display: block; font-size: 64rpx; letter-spacing: 14rpx; margin: 14rpx 0 10rpx; font-weight: 500; }
-	.hero-sub { display: block; font-size: 24rpx; color: #f1e0ce; }
-	.hero-deco {
-		position: absolute; right: -60rpx; top: -60rpx; width: 320rpx; height: 320rpx; border-radius: 50%;
-		background: radial-gradient(circle, rgba(212, 154, 97, .35), transparent 70%);
+	.hero-bg {
+		position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+		display: block; z-index: 0;
 	}
+	.hero-mask {
+		position: absolute; left: 0; top: 0; right: 0; bottom: 0; z-index: 1;
+		background: linear-gradient(90deg, rgba(24, 14, 12, .90) 0%, rgba(24, 14, 12, .74) 42%, rgba(24, 14, 12, .38) 72%, rgba(24, 14, 12, .12) 100%);
+	}
+	.hero-content { position: relative; z-index: 2; max-width: 72%; }
+	.hero-eyebrow { font-size: 18rpx; letter-spacing: 5rpx; color: #e8c99a; display: block; }
+	.hero-title {
+		display: block; font-size: 64rpx; letter-spacing: 14rpx; margin: 14rpx 0 10rpx;
+		font-weight: 500; text-shadow: 0 2rpx 12rpx rgba(0, 0, 0, .35);
+	}
+	.hero-sub { display: block; font-size: 24rpx; color: #f1e0ce; text-shadow: 0 2rpx 10rpx rgba(0, 0, 0, .3); }
 	.actions { padding: 44rpx 40rpx 10rpx; text-align: center; }
 	.btn-primary {
 		background: $red; color: #fff5e9; border-radius: 60rpx; font-size: 30rpx;
@@ -140,8 +151,8 @@
 	}
 	.entry { width: 25%; text-align: center; padding: 24rpx 0; }
 	.entry-icon {
-		display: inline-grid; place-items: center; width: 84rpx; height: 84rpx; border-radius: 24rpx;
-		background: #f1e6d7; color: $red; font-size: 32rpx; line-height: 84rpx;
+		display: block; width: 67rpx; height: 67rpx; margin: 0 auto; border-radius: 19rpx;
+		background: #f6f1e8; /* 与切图底色同源，aspectFit 后四周无缝 */
 	}
 	.entry-name { display: block; font-size: 22rpx; color: $muted; margin-top: 10rpx; }
 	.entry.disabled { opacity: .5; }
